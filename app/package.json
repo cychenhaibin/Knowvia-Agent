@@ -1,0 +1,61 @@
+{
+  "name": "quickque-agent-app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --clear",
+    "dev:android": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --clear --localhost",
+    "android": "EXPO_NO_TYPESCRIPT_SETUP=1 expo run:android",
+    "android:reload": "adb reverse tcp:8081 tcp:8081 && adb shell am force-stop com.anonymous.quickqueagent && adb shell monkey -p com.anonymous.quickqueagent -c android.intent.category.LAUNCHER 1",
+    "ios": "EXPO_NO_TYPESCRIPT_SETUP=1 expo run:ios",
+    "web": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --web",
+    "update:icon": "bash ./update-icon.sh",
+    "build:android": "bash ./build_android.sh release",
+    "build:android:debug": "bash ./build_android.sh debug",
+    "build:android:release": "bash ./build_android.sh release",
+    "build:android:aab": "bash ./build_android.sh aab"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
+    "@react-native/js-polyfills": "^0.79.6",
+    "@tanstack/react-query": "^5.66.8",
+    "expo": "~53.0.27",
+    "expo-blur": "~14.1.5",
+    "expo-constants": "~17.1.8",
+    "expo-haptics": "~14.1.4",
+    "expo-linear-gradient": "~14.1.5",
+    "expo-linking": "~7.1.7",
+    "expo-router": "~5.1.11",
+    "expo-secure-store": "~14.2.4",
+    "expo-status-bar": "~2.2.3",
+    "expo-web-browser": "~14.2.0",
+    "nativewind": "4.1.23",
+    "react": "19.0.0",
+    "react-native": "0.79.6",
+    "react-native-css-interop": "0.1.22",
+    "react-native-markdown-display": "^7.0.2",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "react-native-sse": "^1.2.1",
+    "react-native-svg": "^15.15.4",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.0.10",
+    "metro": "^0.82.5",
+    "metro-config": "^0.82.5",
+    "metro-core": "^0.82.5",
+    "metro-resolver": "^0.82.5",
+    "metro-source-map": "^0.82.5",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.8.3"
+  },
+  "overrides": {
+    "react-native-css-interop": "0.1.22"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}

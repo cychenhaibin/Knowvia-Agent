@@ -1,0 +1,35 @@
+.DS_Store
+.codex/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Node / Expo
+node_modules/
+dist/
+.expo/
+expo-env.d.ts
+
+# Native build output
+build/
+.gradle/
+DerivedData/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Runtime data and local services
+llm/data/
+infra/.local-postgres-5433/
+
+# Logs and temporary files
+*.log
+tmp/
+temp/

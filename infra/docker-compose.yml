@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: quickque-agent-postgres
+    environment:
+      POSTGRES_USER: quickque
+      POSTGRES_PASSWORD: quickque
+      POSTGRES_DB: quickque_agent
+    ports:
+      - "5433:5432"
+    volumes:
+      - qqagent_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: quickque-agent-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - qqagent_redis:/data
+
+volumes:
+  qqagent_pgdata:
+  qqagent_redis:

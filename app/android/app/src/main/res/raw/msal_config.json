@@ -1,0 +1,16 @@
+{
+  "client_id": "51595d48-0019-4715-acb6-7f5cbce92f51",
+  "authorization_user_agent": "DEFAULT",
+  "redirect_uri": "msauth://com.anonymous.quickqueagent/dD9cj0j5Y9CYklZnfkKQ87tb5Mw%3D",
+  "broker_redirect_uri_registered": false,
+  "account_mode": "MULTIPLE",
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "PersonalMicrosoftAccount",
+        "tenant_id": "consumers"
+      }
+    }
+  ]
+}

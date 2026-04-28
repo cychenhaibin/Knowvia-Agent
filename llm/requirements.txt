@@ -1,0 +1,8 @@
+fastapi==0.115.12
+numpy>=1.26.4
+openai==1.79.0
+pydantic==2.11.4
+psycopg[binary]==3.2.9
+Requests==2.32.3
+urllib3<2
+uvicorn[standard]>=0.30.0
