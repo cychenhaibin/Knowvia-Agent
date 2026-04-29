@@ -53,7 +53,7 @@ export function ChatComposer({
         position: 'absolute',
         left: 0,
         right: 0,
-        bottom: -20,
+        bottom: -22,
         backgroundColor: 'transparent',
         zIndex: 20,
         elevation: 20,
@@ -106,7 +106,7 @@ export function ChatComposer({
           style={{
             // minHeight: 48,
             maxHeight: 118,
-            lineHeight: 26,
+            lineHeight: 18,
             color: colors.textPrimary,
             textAlignVertical: 'top',
             fontSize: fontSizes.md,
@@ -118,7 +118,7 @@ export function ChatComposer({
           }}
         />
 
-        <View className="mt-3 flex-row items-center gap-2">
+        <View className="mt-6 flex-row items-center gap-2">
           <Pressable
             className="items-center justify-center ml-1 rounded-full"
             style={({pressed}) => ({

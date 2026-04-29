@@ -673,6 +673,7 @@ export default function RunsScreen() {
     (Platform.OS === 'android' && keyboardInset > 0 ? 12 : 0);
   const keyboardPageOffset =
     Platform.OS === 'android' && keyboardInset > 0 ? keyboardInset + 20 : 0;
+  const drawerBottomOverlap = 40;
 
   const openHistoryDrawer = () => {
     Keyboard.dismiss();
@@ -700,7 +701,7 @@ export default function RunsScreen() {
   };
 
   return (
-    <View className="flex-1 pb-10" style={{backgroundColor: colors.background}}>
+    <View className="flex-1" style={{backgroundColor: colors.background}}>
       <View className="flex-1" style={{backgroundColor: colors.background}}>
         <Animated.View
           pointerEvents={showHistoryDrawer ? 'auto' : 'none'}
@@ -767,7 +768,14 @@ export default function RunsScreen() {
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
               keyboardVerticalOffset={0}>
               <View className="flex-1">
-                <View className="px-5 pb-4 pt-4">
+                <View
+                  className="px-5 pb-4"
+                  style={{
+                    marginTop: -insets.top,
+                    paddingTop: insets.top + 16,
+                    backgroundColor: colors.background,
+                    zIndex: 30,
+                  }}>
                   <View className="flex-row items-center justify-between">
                     <Pressable
                       className="h-10 w-10 items-center justify-center rounded-full"
@@ -822,43 +830,48 @@ export default function RunsScreen() {
                   </View>
                 </View>
 
-                <View
-                  className="flex-1"
-                  style={{
-                    transform: [{translateY: -keyboardPageOffset}],
-                  }}>
-                  <ChatMessages
-                    colors={colors}
-                    messages={messages}
-                    scrollRef={scrollRef}
-                    assistantTitle="Knowvia"
-                    assistantBadgeLabel={selectedModel.title}
-                    greetingBody={t('chat.greetingBody')}
-                    sendingLabel={t('chat.sending')}
-                    sourcesLabel={t('chat.sources')}
-                    contentBottomPadding={Math.max(24, composerHeight)}
-                  />
+                <View className="flex-1">
+                  <View
+                    className="flex-1"
+                    style={{
+                      transform: [{translateY: -keyboardPageOffset}],
+                      marginBottom: drawerBottomOverlap
+                    }}>
+                    <ChatMessages
+                      colors={colors}
+                      messages={messages}
+                      scrollRef={scrollRef}
+                      assistantTitle="Knowvia"
+                      assistantBadgeLabel={selectedModel.title}
+                      greetingBody={t('chat.greetingBody')}
+                      sendingLabel={t('chat.sending')}
+                      sourcesLabel={t('chat.sources')}
+                      contentBottomPadding={Math.max(24, composerHeight)}
+                    />
 
-                  <ChatComposer
-                    colors={colors}
-                    input={input}
-                    streaming={streaming}
-                    placeholder={t('chat.inputPlaceholder')}
-                    composerBottomPadding={composerBottomPadding}
-                    selectedSkillTitle={selectedSkill.title}
-                    showSkillChip={selectedSkill.id !== DEFAULT_SKILL_ID}
-                    activeKnowledgeLabels={activeKnowledgeLabels}
-                    enableSearch={enableSearch}
-                    searchLabel={t('chat.webSearch')}
-                    searchStateLabel={enableSearch ? t('chat.webSearchEnabled') : t('chat.webSearchDisabled')}
-                    onInputChange={setInput}
-                    onSend={sendMessage}
-                    onOpenComposerMenu={() => setShowComposerMenu(true)}
-                    onOpenSkillPicker={() => setShowSkillPicker(true)}
-                    onOpenKnowledgePicker={() => setShowKnowledgePicker(true)}
-                    onEnableSearchChange={setEnableSearch}
-                    onHeightChange={setComposerHeight}
-                  />
+                    <ChatComposer
+                      colors={colors}
+                      input={input}
+                      streaming={streaming}
+                      placeholder={t('chat.inputPlaceholder')}
+                      composerBottomPadding={composerBottomPadding}
+                      selectedSkillTitle={selectedSkill.title}
+                      showSkillChip={selectedSkill.id !== DEFAULT_SKILL_ID}
+                      activeKnowledgeLabels={activeKnowledgeLabels}
+                      enableSearch={enableSearch}
+                      searchLabel={t('chat.webSearch')}
+                      searchStateLabel={
+                        enableSearch ? t('chat.webSearchEnabled') : t('chat.webSearchDisabled')
+                      }
+                      onInputChange={setInput}
+                      onSend={sendMessage}
+                      onOpenComposerMenu={() => setShowComposerMenu(true)}
+                      onOpenSkillPicker={() => setShowSkillPicker(true)}
+                      onOpenKnowledgePicker={() => setShowKnowledgePicker(true)}
+                      onEnableSearchChange={setEnableSearch}
+                      onHeightChange={setComposerHeight}
+                    />
+                  </View>
                 </View>
               </View>
             </KeyboardAvoidingView>
@@ -869,10 +882,11 @@ export default function RunsScreen() {
                 position: 'absolute',
                 top: 0,
                 right: 0,
-                bottom: 0,
+                bottom: -drawerBottomOverlap,
                 left: 0,
                 backgroundColor: colors.overlay,
                 opacity: contentOverlayOpacity,
+                zIndex: 40,
               }}>
               <Pressable
                 className="flex-1"

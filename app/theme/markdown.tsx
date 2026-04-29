@@ -306,7 +306,7 @@ export function createMarkdownStyles(colors: AppColors, tableCellMinWidth: numbe
       // 行内代码文字颜色。
       color: theme.primary,
       // 行内代码背景色。
-      // backgroundColor: theme.primarySoft,
+      backgroundColor: 'transparent',
       // 圆角大小。
       borderRadius: 24,
       // 等宽字体。

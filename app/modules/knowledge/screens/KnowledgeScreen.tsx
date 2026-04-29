@@ -575,7 +575,7 @@ export default function KnowledgeScreen() {
 
   return (
     <Screen scroll>
-      <View className="gap-6 pb-32">
+      <View className="gap-6">
         <View className="gap-3">
           <View className="flex-row items-center gap-3">
             <Pressable

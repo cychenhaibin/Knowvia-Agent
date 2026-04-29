@@ -323,7 +323,7 @@ export default function RunDetailScreen() {
 
   return (
     <Screen scroll scrollViewRef={scrollViewRef}>
-      <View className="gap-6 pb-12">
+      <View className="gap-6">
         <View className="gap-3 rounded-[28px] p-5" style={{backgroundColor: colors.surface}}>
           <StatusBadge status={run.status} />
           <Text className="text-2xl font-bold" style={{color: colors.textPrimary}}>

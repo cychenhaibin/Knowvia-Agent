@@ -42,7 +42,7 @@ export default function RunHistoryScreen() {
 
   return (
     <Screen scroll>
-      <View className="gap-5 pb-10">
+      <View className="gap-5">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-4">
             <Text className="text-3xl font-bold" style={{color: colors.textPrimary}}>
