@@ -547,6 +547,8 @@ export function subscribeChatStream(
     skillId?: string;
     sessionId?: string;
     chatModel?: string;
+    enableSearch?: boolean;
+    temperature?: number;
   },
   onEvent: (event: ChatStreamEvent) => void,
 ) {
@@ -554,7 +556,11 @@ export function subscribeChatStream(
     message: params.message,
     skill: params.skill,
     use_knowledge: params.useKnowledge ? 'true' : 'false',
+    enable_search: params.enableSearch ? 'true' : 'false',
   });
+  if (typeof params.temperature === 'number' && Number.isFinite(params.temperature)) {
+    query.set('temperature', String(params.temperature));
+  }
   if (params.connectionIds?.length) {
     query.set('connection_ids', params.connectionIds.join(','));
   }

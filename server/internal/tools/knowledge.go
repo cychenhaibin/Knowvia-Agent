@@ -4,9 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/provider"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/provider"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
 )
 
 // KnowledgeSearchTool is the Go-side adapter for internal knowledge retrieval.
@@ -14,12 +13,16 @@ import (
 // scope-level retrieval, and only fall back to the local Go store when the
 // forward client is unavailable or returns an error.
 type KnowledgeSearchTool struct {
-	store   store.Store
+	store   KnowledgeSearchStore
 	forward provider.KnowledgeRetrieveForwardClient
 }
 
+type KnowledgeSearchStore interface {
+	SearchKnowledge(context.Context, string, []string, string, int) ([]domain.KnowledgeHit, error)
+}
+
 func NewKnowledgeSearchTool(
-	st store.Store,
+	st KnowledgeSearchStore,
 	forward provider.KnowledgeRetrieveForwardClient,
 ) *KnowledgeSearchTool {
 	return &KnowledgeSearchTool{store: st, forward: forward}

@@ -102,6 +102,8 @@ class LegacyChatRequest(BaseModel):
     chat_model: str = ""
     chat_api_base: str = ""
     chat_api_key: str = ""
+    enable_search: bool = Field(default=False, validation_alias=AliasChoices("enable_search", "enableSearch"))
+    temperature: Optional[float] = None
     skill_id: str = ""
     skill_prompt: str = ""
     mode: str = "answer"
@@ -388,6 +390,8 @@ class ChatStreamRequest(BaseModel):
     chat_model: str = Field(default="", validation_alias=AliasChoices("chat_model", "chatModel"))
     chat_api_base: str = Field(default="", validation_alias=AliasChoices("chat_api_base", "chatApiBase"))
     chat_api_key: str = Field(default="", validation_alias=AliasChoices("chat_api_key", "chatApiKey"))
+    enable_search: bool = Field(default=False, validation_alias=AliasChoices("enable_search", "enableSearch"))
+    temperature: Optional[float] = None
     skill_id: str = Field(default="", validation_alias=AliasChoices("skill_id", "skillId"))
     skill_prompt: str = Field(default="", validation_alias=AliasChoices("skill_prompt", "skillPrompt"))
     mode: str = "answer"

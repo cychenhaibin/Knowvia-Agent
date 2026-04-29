@@ -49,6 +49,8 @@ import type {ChatSession, PersistedChatMessage} from '@/types/api';
 import {fontSizes} from '@/theme/typography';
 import {useAppTheme} from '@/theme/useAppTheme';
 
+const CHAT_REQUEST_TEMPERATURE = 0.05;
+
 function formatTemperature(value: number) {
   if (!Number.isFinite(value)) {
     return '0';
@@ -73,9 +75,11 @@ export default function RunsScreen() {
   const [pendingGeneralModelId, setPendingGeneralModelId] = useState<string | null>(null);
   const [knowledgeMode, setKnowledgeMode] = useState<KnowledgeMode>('none');
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
+  const [enableSearch, setEnableSearch] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
+  const [composerHeight, setComposerHeight] = useState(0);
   const [showComposerMenu, setShowComposerMenu] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -106,7 +110,7 @@ export default function RunsScreen() {
         baseUrl: 'http://127.0.0.1:11434/v1',
         apiKey: 'ollama',
         modelName: 'gemma3n:e4b',
-        temperature: 0.05,
+        temperature: CHAT_REQUEST_TEMPERATURE,
         isSelected: true,
         available: true,
         createdAt: '',
@@ -199,6 +203,7 @@ export default function RunsScreen() {
       role: item.role,
       content: item.content,
       sources: item.sources ?? [],
+      usage: item.usage,
       state: 'done' as const,
     }));
     setMessages(nextMessages);
@@ -256,8 +261,8 @@ export default function RunsScreen() {
     id: 'default-general-model',
     modelName: 'gemma3n:e4b',
     title: 'Gemma 3n E4B',
-    description: 'gemma3n:e4b · T=0.05',
-    temperature: 0.05,
+    description: `gemma3n:e4b · T=${formatTemperature(CHAT_REQUEST_TEMPERATURE)}`,
+    temperature: CHAT_REQUEST_TEMPERATURE,
     available: true,
   };
 
@@ -271,7 +276,7 @@ export default function RunsScreen() {
       baseUrl: 'http://127.0.0.1:11434/v1',
       apiKey: 'ollama',
       modelName: 'qwen3:8b',
-      temperature: 0.05,
+      temperature: CHAT_REQUEST_TEMPERATURE,
       isSelected: true,
       available: true,
       createdAt: '',
@@ -589,6 +594,8 @@ export default function RunsScreen() {
         skillId: selectedSkill.id !== DEFAULT_SKILL_ID ? selectedSkill.id : undefined,
         connectionIds: knowledgeMode === 'selected' ? selectedConnectionIds : [],
         useKnowledge: knowledgeMode !== 'none',
+        enableSearch,
+        temperature: CHAT_REQUEST_TEMPERATURE,
         skillPrompt: selectedSkill.prompt,
         sessionId: activeSessionId ?? undefined,
       },
@@ -626,6 +633,7 @@ export default function RunsScreen() {
                     ...item,
                     content: event.content ?? item.content,
                     sources: event.sources ?? item.sources,
+                    usage: event.usage ?? item.usage,
                     state: 'done',
                   }
                 : item,
@@ -663,6 +671,8 @@ export default function RunsScreen() {
     Math.max(insets.bottom, 16) +
     (Platform.OS === 'android' ? keyboardInset : 0) +
     (Platform.OS === 'android' && keyboardInset > 0 ? 12 : 0);
+  const keyboardPageOffset =
+    Platform.OS === 'android' && keyboardInset > 0 ? keyboardInset + 20 : 0;
 
   const openHistoryDrawer = () => {
     Keyboard.dismiss();
@@ -690,7 +700,7 @@ export default function RunsScreen() {
   };
 
   return (
-    <View className="flex-1" style={{backgroundColor: colors.background}}>
+    <View className="flex-1 pb-10" style={{backgroundColor: colors.background}}>
       <View className="flex-1" style={{backgroundColor: colors.background}}>
         <Animated.View
           pointerEvents={showHistoryDrawer ? 'auto' : 'none'}
@@ -812,32 +822,44 @@ export default function RunsScreen() {
                   </View>
                 </View>
 
-                <ChatMessages
-                  colors={colors}
-                  messages={messages}
-                  scrollRef={scrollRef}
-                  assistantTitle="Knowvia"
-                  assistantBadgeLabel="Lite"
-                  greetingBody={t('chat.greetingBody')}
-                  sendingLabel={t('chat.sending')}
-                  sourcesLabel={t('chat.sources')}
-                />
+                <View
+                  className="flex-1"
+                  style={{
+                    transform: [{translateY: -keyboardPageOffset}],
+                  }}>
+                  <ChatMessages
+                    colors={colors}
+                    messages={messages}
+                    scrollRef={scrollRef}
+                    assistantTitle="Knowvia"
+                    assistantBadgeLabel={selectedModel.title}
+                    greetingBody={t('chat.greetingBody')}
+                    sendingLabel={t('chat.sending')}
+                    sourcesLabel={t('chat.sources')}
+                    contentBottomPadding={Math.max(24, composerHeight)}
+                  />
 
-                <ChatComposer
-                  colors={colors}
-                  input={input}
-                  streaming={streaming}
-                  placeholder={t('chat.inputPlaceholder')}
-                  composerBottomPadding={composerBottomPadding}
-                  selectedSkillTitle={selectedSkill.title}
-                  showSkillChip={selectedSkill.id !== DEFAULT_SKILL_ID}
-                  activeKnowledgeLabels={activeKnowledgeLabels}
-                  onInputChange={setInput}
-                  onSend={sendMessage}
-                  onOpenComposerMenu={() => setShowComposerMenu(true)}
-                  onOpenSkillPicker={() => setShowSkillPicker(true)}
-                  onOpenKnowledgePicker={() => setShowKnowledgePicker(true)}
-                />
+                  <ChatComposer
+                    colors={colors}
+                    input={input}
+                    streaming={streaming}
+                    placeholder={t('chat.inputPlaceholder')}
+                    composerBottomPadding={composerBottomPadding}
+                    selectedSkillTitle={selectedSkill.title}
+                    showSkillChip={selectedSkill.id !== DEFAULT_SKILL_ID}
+                    activeKnowledgeLabels={activeKnowledgeLabels}
+                    enableSearch={enableSearch}
+                    searchLabel={t('chat.webSearch')}
+                    searchStateLabel={enableSearch ? t('chat.webSearchEnabled') : t('chat.webSearchDisabled')}
+                    onInputChange={setInput}
+                    onSend={sendMessage}
+                    onOpenComposerMenu={() => setShowComposerMenu(true)}
+                    onOpenSkillPicker={() => setShowSkillPicker(true)}
+                    onOpenKnowledgePicker={() => setShowKnowledgePicker(true)}
+                    onEnableSearchChange={setEnableSearch}
+                    onHeightChange={setComposerHeight}
+                  />
+                </View>
               </View>
             </KeyboardAvoidingView>
 

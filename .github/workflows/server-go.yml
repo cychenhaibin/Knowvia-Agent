@@ -1,0 +1,43 @@
+name: server-go
+
+on:
+  push:
+    paths:
+      - "server/**"
+      - ".github/workflows/server-go.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - ".github/workflows/server-go.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: quickque_agent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d quickque_agent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: server
+    env:
+      QQA_TEST_POSTGRES_DSN: postgres://postgres:postgres@127.0.0.1:5432/quickque_agent?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+      - name: Download Go modules
+        run: go mod download
+      - name: Run server tests
+        run: go test ./...

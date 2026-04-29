@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knowvia 字体预览</title>
+    <style>
+      :root {
+        --brand: #f24f2d;
+        --bg: #f7f7f5;
+        --surface: #ffffff;
+        --text: #171717;
+        --secondary: #6b7280;
+        --border: #eceef1;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      }
+
+      main {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 36px 0 64px;
+      }
+
+      header {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .eyebrow {
+        color: var(--brand);
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      h1 {
+        max-width: 780px;
+        margin: 0;
+        font-size: clamp(34px, 5vw, 64px);
+        line-height: 1.06;
+      }
+
+      header p {
+        max-width: 720px;
+        margin: 0;
+        color: var(--secondary);
+        font-size: 16px;
+        line-height: 1.75;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 14px;
+      }
+
+      article {
+        display: grid;
+        gap: 16px;
+        min-height: 270px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px;
+        background: var(--surface);
+      }
+
+      .meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .meta strong {
+        font-size: 15px;
+      }
+
+      .status {
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: #f0f1f3;
+        color: var(--secondary);
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .status.available {
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      .sample {
+        margin: 0;
+        font-size: 42px;
+        line-height: 1.08;
+        font-weight: 760;
+        letter-spacing: 0;
+      }
+
+      .sample.small {
+        color: var(--secondary);
+        font-size: 17px;
+        line-height: 1.7;
+        font-weight: 500;
+      }
+
+      .stack {
+        margin: auto 0 0;
+        color: var(--secondary);
+        font-size: 12px;
+        line-height: 1.5;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">Knowvia Agent Font Demo</div>
+        <h1>选择一个适合企业知识执行工作台的标题字体</h1>
+        <p>
+          每张卡片使用同一句大标题和同样的字号、字重。标记“可用”表示当前浏览器环境能直接找到该字体；否则会回退到系统字体。
+        </p>
+      </header>
+
+      <section class="grid" id="fontGrid" aria-label="字体预览列表"></section>
+    </main>
+
+    <script>
+      const fonts = [
+        ['PingFang SC', "'PingFang SC', sans-serif"],
+        ['Hiragino Sans GB', "'Hiragino Sans GB', sans-serif"],
+        ['Microsoft YaHei', "'Microsoft YaHei', sans-serif"],
+        ['Heiti SC', "'Heiti SC', sans-serif"],
+        ['STHeiti', "'STHeiti', sans-serif"],
+        ['Noto Sans CJK SC', "'Noto Sans CJK SC', sans-serif"],
+        ['Source Han Sans SC', "'Source Han Sans SC', sans-serif"],
+        ['Inter', "Inter, sans-serif"],
+        ['Songti SC', "'Songti SC', serif"],
+        ['STSong', "'STSong', serif"],
+        ['Noto Serif CJK SC', "'Noto Serif CJK SC', serif"],
+        ['Source Han Serif SC', "'Source Han Serif SC', serif"],
+        ['MiSans', "MiSans, sans-serif"],
+        ['HarmonyOS Sans SC', "'HarmonyOS Sans SC', sans-serif"],
+        ['Alibaba PuHuiTi', "'Alibaba PuHuiTi', sans-serif"],
+        ['DingTalk JinBuTi', "'DingTalk JinBuTi', sans-serif"],
+        ['Smiley Sans', "'Smiley Sans', sans-serif"],
+        ['OPPO Sans', "'OPPO Sans', sans-serif"],
+      ];
+
+      const title = '企业知识工作不缺 AI，缺的是可信执行';
+      const body = '知识驱动、执行可见、结果可追溯。';
+      const grid = document.querySelector('#fontGrid');
+
+      fonts.forEach(([name, stack]) => {
+        const isAvailable = document.fonts.check(`16px "${name}"`);
+        const card = document.createElement('article');
+        card.innerHTML = `
+          <div class="meta">
+            <strong>${name}</strong>
+            <span class="status ${isAvailable ? 'available' : ''}">
+              ${isAvailable ? '可用' : '回退'}
+            </span>
+          </div>
+          <p class="sample" style="font-family: ${stack}">${title}</p>
+          <p class="sample small" style="font-family: ${stack}">${body}</p>
+          <div class="stack">${stack}</div>
+        `;
+        grid.appendChild(card);
+      });
+    </script>
+  </body>
+</html>

@@ -57,14 +57,22 @@ class ChatService:
             requested_prompt=str(payload.get("skill_prompt") or "").strip(),
             skill_snapshot=payload.get("skill_snapshot") or {},
         )
+        requested_profile = dict(payload.get("model_profile") or {})
+        explicit_temperature = payload.get("temperature")
+        if explicit_temperature is not None:
+            requested_profile["temperature"] = explicit_temperature
+        has_explicit_temperature = requested_profile.get("temperature") is not None
         model_profile = self.model_profile_service.resolve(
             user_id=user_id,
             purpose="chat_fast",
-            requested_profile=payload.get("model_profile") or {},
+            requested_profile=requested_profile,
             legacy_model=str(payload.get("chat_model") or "").strip(),
             legacy_api_base=str(payload.get("chat_api_base") or "").strip(),
             legacy_api_key=str(payload.get("chat_api_key") or "").strip(),
         )
+        if not has_explicit_temperature:
+            model_profile.temperature = None
+        enable_search = bool(payload.get("enable_search"))
         base_trace = {
             "id": trace_id,
             "trace_id": trace_id,
@@ -107,11 +115,16 @@ class ChatService:
             skill_prompt=skill_prompt,
             passages=retrieval.passages,
         )
-        generator = build_generation_client(self.settings, profile=model_profile)
+        generator = build_generation_client(self.settings, profile=model_profile, enable_search=enable_search)
         answer_parts = []
+        usage = None
         generation_started = perf_counter()
         try:
-            for chunk in generator.generate_stream(prompt):
+            for stream_chunk in generator.generate_stream(prompt):
+                if stream_chunk.usage is not None:
+                    usage = stream_chunk.usage
+                    continue
+                chunk = stream_chunk.content
                 if not chunk:
                     continue
                 answer_parts.append(chunk)
@@ -178,6 +191,13 @@ class ChatService:
                 "generateMs": generation_elapsed_ms,
                 "totalMs": retrieval.diagnostics.latency_total_ms + generation_elapsed_ms,
             },
+            "usage": {
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens,
+            }
+            if usage is not None
+            else None,
         }
 
     def _select_grounded_sources(self, answer: str, retrieval) -> List[Dict[str, object]]:

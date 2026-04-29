@@ -3,8 +3,9 @@ package knowledge
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"regexp"
 	"strings"
+
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/textutil"
 )
 
 func ContentHash(content string) string {
@@ -12,19 +13,8 @@ func ContentHash(content string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-var htmlTagPattern = regexp.MustCompile(`<[^>]+>`)
-
 func NormalizeBody(body string) string {
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return ""
-	}
-	if looksLikeStructuredBody(body) {
-		if normalized, ok := normalizeStructuredBody(body); ok && normalized != "" {
-			return normalized
-		}
-	}
-	return cleanPlainText(body)
+	return textutil.NormalizeBody(body)
 }
 
 func SplitIntoChunks(content string, chunkSize int) []string {

@@ -106,10 +106,10 @@ export function createMarkdownTheme(colors: AppColors): MarkdownTheme {
     primarySoft: colors.brandSoft,
     // 引用块背景色，在表面色上轻叠品牌色。
     quoteBg: mixColors(colors.surface, colors.brand, dark ? 0.18 : 0.08),
-    // 代码块背景色，基于正文色和表面色混合，保证和整体主题一致。
-    codeBg: mixColors(colors.surface, colors.textPrimary, dark ? 0.18 : 0.88),
-    // 代码块文字颜色，亮主题下用表面色，暗主题下用主文字色。
-    codeText: dark ? colors.textPrimary : colors.surface,
+    // 代码块背景色，直接跟随当前主题表面色。
+    codeBg: colors.surface,
+    // 代码块文字颜色，跟随当前主题主文字色。
+    codeText: colors.textPrimary,
     // 表格隔行底色，在 muted surface 上轻叠品牌色。
     tableStripe: mixColors(colors.surfaceMuted, colors.brand, dark ? 0.12 : 0.04),
   };
@@ -306,9 +306,9 @@ export function createMarkdownStyles(colors: AppColors, tableCellMinWidth: numbe
       // 行内代码文字颜色。
       color: theme.primary,
       // 行内代码背景色。
-      backgroundColor: theme.primarySoft,
+      // backgroundColor: theme.primarySoft,
       // 圆角大小。
-      borderRadius: 7,
+      borderRadius: 24,
       // 等宽字体。
       fontFamily: mono,
       // 行内代码字号。
@@ -322,6 +322,9 @@ export function createMarkdownStyles(colors: AppColors, tableCellMinWidth: numbe
       backgroundColor: theme.codeBg,
       // 圆角大小。
       borderRadius: 14,
+      // 不显示边框。
+      borderWidth: 0,
+      borderColor: 'transparent',
       // 左右内边距。
       paddingHorizontal: 18,
       // 上下内边距。
@@ -341,6 +344,9 @@ export function createMarkdownStyles(colors: AppColors, tableCellMinWidth: numbe
       backgroundColor: theme.codeBg,
       // 圆角大小。
       borderRadius: 14,
+      // 不显示边框。
+      borderWidth: 0,
+      borderColor: 'transparent',
       // 左右内边距。
       paddingHorizontal: 18,
       // 上下内边距。

@@ -1,28 +1,32 @@
 from __future__ import annotations
 
 import json
-from typing import Iterator, Union
+from typing import Iterator, Optional, Union
 
 import requests
 
 from qqa_llm.core.errors import GenerationError
 from qqa_llm.domain.models import ChatPrompt, ReportPrompt
+from qqa_llm.inference.types import GenerationStreamChunk
 
 
 class OllamaGenerationClient:
-    def __init__(self, *, model: str, base_url: str, temperature: float = 0.2, max_tokens: int = 4096) -> None:
+    def __init__(self, *, model: str, base_url: str, temperature: Optional[float] = None, max_tokens: int = 4096) -> None:
         self.model = model
         self.base_url = self._normalize_base_url(base_url)
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-    def generate_stream(self, prompt: Union[ChatPrompt, ReportPrompt]) -> Iterator[str]:
+    def generate_stream(self, prompt: Union[ChatPrompt, ReportPrompt]) -> Iterator[GenerationStreamChunk]:
+        options = {"num_predict": self.max_tokens}
+        if self.temperature is not None:
+            options["temperature"] = self.temperature
         response = requests.post(
             f"{self.base_url}/api/chat",
             json={
                 "model": self.model,
                 "stream": True,
-                "options": {"temperature": self.temperature, "num_predict": self.max_tokens},
+                "options": options,
                 "messages": [
                     {"role": "system", "content": prompt.system_prompt},
                     {"role": "user", "content": prompt.user_prompt},
@@ -38,15 +42,18 @@ class OllamaGenerationClient:
             payload = json.loads(line)
             message = (payload.get("message") or {}).get("content") or ""
             if message:
-                yield message
+                yield GenerationStreamChunk(content=message)
 
     def generate(self, prompt: Union[ChatPrompt, ReportPrompt]) -> str:
+        options = {"num_predict": self.max_tokens}
+        if self.temperature is not None:
+            options["temperature"] = self.temperature
         response = requests.post(
             f"{self.base_url}/api/chat",
             json={
                 "model": self.model,
                 "stream": False,
-                "options": {"temperature": self.temperature, "num_predict": self.max_tokens},
+                "options": options,
                 "messages": [
                     {"role": "system", "content": prompt.system_prompt},
                     {"role": "user", "content": prompt.user_prompt},

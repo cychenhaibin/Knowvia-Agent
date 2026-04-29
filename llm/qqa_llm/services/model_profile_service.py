@@ -70,6 +70,7 @@ class ModelProfileService:
         model_name = explicit_model or self._default_model_name(provider, effective_purpose)
         profile_key = profile_id or f"adhoc_{effective_purpose}_{provider}"
         name = str(requested_profile.get("name") or requested_profile.get("title") or profile_key).strip() or profile_key
+        requested_temperature = requested_profile.get("temperature")
         return ResolvedModelProfile(
             id=profile_key,
             purpose=effective_purpose,
@@ -78,7 +79,7 @@ class ModelProfileService:
             base_url=explicit_base_url or self._default_base_url(provider),
             api_key=explicit_api_key or self._default_api_key(provider),
             model_name=model_name,
-            temperature=float(requested_profile.get("temperature") or self._default_temperature(effective_purpose)),
+            temperature=float(requested_temperature) if requested_temperature is not None else self._default_temperature(effective_purpose),
             max_tokens=int(requested_profile.get("max_tokens") or requested_profile.get("maxTokens") or 4096),
         )
 
@@ -100,7 +101,7 @@ class ModelProfileService:
             base_url=str(payload.get("base_url") or payload.get("baseUrl") or self._default_base_url(provider)).strip(),
             api_key_ref=str(payload.get("api_key_ref") or payload.get("apiKeyRef") or "").strip(),
             model_name=str(payload.get("model_name") or payload.get("modelName") or self._default_model_name(provider, purpose)).strip(),
-            temperature=float(payload.get("temperature") or self._default_temperature(purpose)),
+            temperature=float(payload["temperature"]) if payload.get("temperature") is not None else self._default_temperature(purpose),
             max_tokens=int(payload.get("max_tokens") or payload.get("maxTokens") or 4096),
             is_default=bool(payload.get("is_default", payload.get("isDefault", False))),
             updated_at=str(payload.get("updated_at") or payload.get("updatedAt") or now),
@@ -147,7 +148,7 @@ class ModelProfileService:
             base_url=str(payload.get("base_url") or ""),
             api_key=explicit_api_key or self._resolve_api_key_ref(str(payload.get("api_key_ref") or ""), provider=provider),
             model_name=str(payload.get("model_name") or self._default_model_name(provider, str(payload.get("purpose") or ""))),
-            temperature=float(payload.get("temperature") or self._default_temperature(str(payload.get("purpose") or ""))),
+            temperature=float(payload["temperature"]) if payload.get("temperature") is not None else self._default_temperature(str(payload.get("purpose") or "")),
             max_tokens=int(payload.get("max_tokens") or 4096),
         )
 

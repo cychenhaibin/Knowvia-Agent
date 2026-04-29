@@ -17,6 +17,15 @@ type Config struct {
 	RefreshTTL            time.Duration
 	QueueMode             string
 	RedisAddr             string
+	QueueName             string
+	QueueWorkers          int
+	QueueMaxAttempts      int
+	QueuePollTimeout      time.Duration
+	QueueRetryBaseDelay   time.Duration
+	QueueRetryMaxDelay    time.Duration
+	QueueMetricsLogPeriod time.Duration
+	QueueShutdownTimeout  time.Duration
+	QueueDedupTTL         time.Duration
 	PostgresDSN           string
 	GoogleWebClientID     string
 	MicrosoftClientID     string
@@ -60,6 +69,15 @@ func Load() Config {
 		RefreshTTL:            time.Duration(getenvInt("QQA_REFRESH_TTL_HOURS", 24*7)) * time.Hour,
 		QueueMode:             getenv("QQA_QUEUE_MODE", "inline"),
 		RedisAddr:             getenv("QQA_REDIS_ADDR", "127.0.0.1:6380"),
+		QueueName:             getenv("QQA_QUEUE_NAME", "knowvia:tasks"),
+		QueueWorkers:          getenvInt("QQA_QUEUE_WORKERS", 4),
+		QueueMaxAttempts:      getenvInt("QQA_QUEUE_MAX_ATTEMPTS", 5),
+		QueuePollTimeout:      time.Duration(getenvInt("QQA_QUEUE_POLL_TIMEOUT_SECONDS", 5)) * time.Second,
+		QueueRetryBaseDelay:   time.Duration(getenvInt("QQA_QUEUE_RETRY_BASE_SECONDS", 2)) * time.Second,
+		QueueRetryMaxDelay:    time.Duration(getenvInt("QQA_QUEUE_RETRY_MAX_SECONDS", 120)) * time.Second,
+		QueueMetricsLogPeriod: time.Duration(getenvInt("QQA_QUEUE_METRICS_LOG_SECONDS", 30)) * time.Second,
+		QueueShutdownTimeout:  time.Duration(getenvInt("QQA_QUEUE_SHUTDOWN_TIMEOUT_SECONDS", 15)) * time.Second,
+		QueueDedupTTL:         time.Duration(getenvInt("QQA_QUEUE_DEDUP_TTL_SECONDS", 21600)) * time.Second,
 		PostgresDSN:           postgresDSN,
 		GoogleWebClientID:     getenv("QQA_GOOGLE_WEB_CLIENT_ID", ""),
 		MicrosoftClientID:     getenv("QQA_MICROSOFT_CLIENT_ID", ""),

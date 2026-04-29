@@ -6,10 +6,11 @@ from qqa_llm.core.config import Settings
 from qqa_llm.domain.models import ChatPrompt, ReportPrompt, ResolvedModelProfile
 from qqa_llm.inference.ollama_client import OllamaGenerationClient
 from qqa_llm.inference.openai_client import OpenAIGenerationClient
+from qqa_llm.inference.types import GenerationStreamChunk
 
 
 class GenerationClient(Protocol):
-    def generate_stream(self, prompt: Union[ChatPrompt, ReportPrompt]) -> Iterator[str]:
+    def generate_stream(self, prompt: Union[ChatPrompt, ReportPrompt]) -> Iterator[GenerationStreamChunk]:
         ...
 
     def generate(self, prompt: Union[ChatPrompt, ReportPrompt]) -> str:
@@ -17,8 +18,8 @@ class GenerationClient(Protocol):
 
 
 class FallbackGenerationClient:
-    def generate_stream(self, prompt: Union[ChatPrompt, ReportPrompt]) -> Iterator[str]:
-        yield self.generate(prompt)
+    def generate_stream(self, prompt: Union[ChatPrompt, ReportPrompt]) -> Iterator[GenerationStreamChunk]:
+        yield GenerationStreamChunk(content=self.generate(prompt))
 
     def generate(self, prompt: Union[ChatPrompt, ReportPrompt]) -> str:
         if isinstance(prompt, ChatPrompt):
@@ -74,7 +75,7 @@ def _default_model_name(settings: Settings, profile: ResolvedModelProfile) -> st
     return settings.default_chat_model
 
 
-def build_generation_client(settings: Settings, *, profile: ResolvedModelProfile) -> GenerationClient:
+def build_generation_client(settings: Settings, *, profile: ResolvedModelProfile, enable_search: bool = False) -> GenerationClient:
     provider = (profile.provider or "").strip().lower()
 
     if provider in {"openai", "openai_compatible"} and profile.base_url and profile.api_key:
@@ -84,6 +85,7 @@ def build_generation_client(settings: Settings, *, profile: ResolvedModelProfile
             api_key=profile.api_key,
             temperature=profile.temperature,
             max_tokens=profile.max_tokens,
+            enable_search=enable_search,
         )
     if provider == "ollama":
         return OllamaGenerationClient(

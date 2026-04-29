@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/provider"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/provider"
 )
 
 // EvidenceMergeTool lets the Python llm own the run-time evidence merge step

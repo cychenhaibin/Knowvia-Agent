@@ -5,22 +5,17 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/auth"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/chat"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/httpapi"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/queue"
+	inlinequeue "github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/queue/inline"
+	redisqueue "github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/queue/redis"
+	appcore "github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/app"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/config"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/httpapi"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/knowledge"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/mirror"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/provider"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/run"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/skillimport"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/taskqueue"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/tools"
 )
 
 func main() {
@@ -30,68 +25,50 @@ func main() {
 	startupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var st store.Store
-	switch cfg.StoreBackend {
-	case "postgres":
-		postgresStore, err := store.NewPostgresStore(startupCtx, cfg.PostgresDSN)
-		if err != nil {
-			log.Fatalf("connect store backend postgres: %v", err)
-		}
-		defer postgresStore.Close()
-		st = postgresStore
-		log.Printf("Knowvia store backend: postgres")
-	default:
-		st = store.NewMemoryStore()
-		log.Printf("Knowvia store backend: memory")
+	services, err := appcore.Bootstrap(startupCtx, cfg)
+	if err != nil {
+		log.Fatalf("bootstrap services: %v", err)
 	}
+	defer services.Close()
+	log.Printf("Knowvia store backend: %s", cfg.StoreBackend)
 
-	authService := auth.NewService(st, cfg)
-	if err := authService.SeedDevUsers(context.Background()); err != nil {
+	if err := services.Auth.SeedDevUsers(context.Background()); err != nil {
 		log.Fatalf("seed users: %v", err)
 	}
+	go services.Mirror.StartBackgroundRetry(context.Background())
 
-	broker := run.NewEventBroker()
-	llmClient := provider.NewOpenAICompatibleClient(cfg)
-	forwardClient := provider.NewPythonForwardClient(cfg)
-	mirrorService := mirror.NewService(st, forwardClient)
-	knowledgeService := knowledge.NewService(st, forwardClient, forwardClient)
-	knowledgeSearchTool := tools.NewKnowledgeSearchTool(st, forwardClient)
-	chatService := chat.NewService(knowledgeSearchTool, llmClient, forwardClient)
-	skillImporter := skillimport.NewService(nil)
-	go mirrorService.StartBackgroundRetry(context.Background())
-
-	var runService *run.Service
-	dispatcher := taskqueue.NewInlineDispatcher(
-		func(ctx context.Context, runID string) error {
-			return runService.ExecuteRun(ctx, runID)
-		},
-		func(ctx context.Context, connectionID, jobID string) error {
-			return knowledgeService.ExecuteSync(ctx, connectionID, jobID)
-		},
-	)
-
-	runService = run.NewService(
-		st,
-		dispatcher,
-		broker,
-		run.NewPlanner(),
-		knowledgeSearchTool,
-		tools.NewDuckDuckGoSearchTool(),
-		tools.NewWebPageExtractTool(),
-		tools.NewEvidenceMergeTool(forwardClient),
-		tools.NewMarkdownReportWriter(llmClient, forwardClient),
-	)
+	runFn := func(ctx context.Context, runID string) error {
+		return services.Run.ExecuteRun(ctx, runID)
+	}
+	syncFn := func(ctx context.Context, connectionID, jobID string) error {
+		return services.Knowledge.ExecuteSync(ctx, connectionID, jobID)
+	}
+	var dispatcher taskqueue.Dispatcher
+	switch strings.ToLower(strings.TrimSpace(cfg.QueueMode)) {
+	case "", taskqueue.ModeInline:
+		dispatcher = inlinequeue.New(runFn, syncFn)
+	case taskqueue.ModeRedis:
+		dispatcher, err = redisqueue.NewDispatcher(redisqueue.Options{
+			Addr:      cfg.RedisAddr,
+			QueueName: cfg.QueueName,
+			DedupTTL:  cfg.QueueDedupTTL,
+		})
+		if err != nil {
+			log.Fatalf("build redis dispatcher: %v", err)
+		}
+	default:
+		log.Fatalf("unsupported queue mode %q", cfg.QueueMode)
+	}
+	defer func() { _ = dispatcher.Close() }()
+	services.SetDispatcher(dispatcher)
 
 	router := httpapi.NewRouter(
-		authService,
-		st,
-		runService,
-		knowledgeService,
-		mirrorService,
-		chatService,
-		skillImporter,
-		dispatcher,
-		broker,
+		services.Auth,
+		services.Run,
+		services.Knowledge,
+		services.Chat,
+		services.Skill,
+		services.SkillImport,
 	)
 	log.Printf("Knowvia API listening on %s", cfg.ServerAddr)
 	listener, err := net.Listen("tcp4", cfg.ServerAddr)

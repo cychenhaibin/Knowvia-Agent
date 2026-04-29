@@ -1,4 +1,4 @@
-import type {ChatSkill, ChatSource} from '@/types/api';
+import type {ChatSkill, ChatSource, ChatUsage} from '@/types/api';
 
 export type KnowledgeMode = 'none' | 'all' | 'selected';
 
@@ -7,6 +7,7 @@ export type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
   sources?: ChatSource[];
+  usage?: ChatUsage;
   state?: 'streaming' | 'error' | 'done';
 };
 

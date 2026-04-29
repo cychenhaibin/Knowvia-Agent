@@ -9,17 +9,24 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/provider"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/provider"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/persistence"
 )
 
 type Service struct {
-	store  store.Store
+	store  MirrorStore
 	client provider.MirrorClient
 }
 
-func NewService(st store.Store, client provider.MirrorClient) *Service {
+type MirrorStore interface {
+	ListDueMirrorTasks(context.Context, time.Time, int) ([]domain.MirrorTask, error)
+	GetMirrorTask(context.Context, string) (domain.MirrorTask, error)
+	UpdateMirrorTask(context.Context, domain.MirrorTask) error
+	CreateMirrorTask(context.Context, domain.MirrorTask) error
+}
+
+func NewService(st MirrorStore, client provider.MirrorClient) *Service {
 	return &Service{store: st, client: client}
 }
 
@@ -194,7 +201,7 @@ func (s *Service) recordAndSchedule(
 	payload any,
 	cause error,
 ) error {
-	if errors.Is(cause, store.ErrNotFound) {
+	if errors.Is(cause, persistence.ErrNotFound) {
 		return cause
 	}
 

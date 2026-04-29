@@ -6,14 +6,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/store"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/tools"
 )
 
 func TestCreateRunResolvesDefaultSkillInstallationByDefinition(t *testing.T) {
 	mem := store.NewMemoryStore()
-	service := NewService(mem, nil, NewEventBroker(), NewPlanner(), nil, nil, nil, nil, nil)
+	service := NewService(ServiceDeps{
+		Runs:      mem,
+		Steps:     mem,
+		Artifacts: mem,
+		Sources:   mem,
+		Skills:    mem,
+		Selection: mem,
+	}, nil, NewEventBroker(), NewPlanner(), nil, nil, nil, nil, nil)
 	user := domain.User{
 		ID:        "user-1",
 		Username:  "tester",
@@ -83,7 +90,14 @@ func TestExecuteRunPassesSkillSnapshotToReportWriter(t *testing.T) {
 			ReportMarkdown:    "# report",
 		},
 	}
-	service := NewService(mem, nil, NewEventBroker(), NewPlanner(), nil, nil, nil, nil, writer)
+	service := NewService(ServiceDeps{
+		Runs:      mem,
+		Steps:     mem,
+		Artifacts: mem,
+		Sources:   mem,
+		Skills:    mem,
+		Selection: mem,
+	}, nil, NewEventBroker(), NewPlanner(), nil, nil, nil, nil, writer)
 
 	user := domain.User{
 		ID:        "user-1",
@@ -212,7 +226,14 @@ func TestExecuteRunUsesEvidenceMerger(t *testing.T) {
 			GroupLabels:    []string{"发布说明"},
 		},
 	}
-	service := NewService(mem, nil, NewEventBroker(), NewPlanner(), knowledgeTool, nil, nil, merger, writer)
+	service := NewService(ServiceDeps{
+		Runs:      mem,
+		Steps:     mem,
+		Artifacts: mem,
+		Sources:   mem,
+		Skills:    mem,
+		Selection: mem,
+	}, nil, NewEventBroker(), NewPlanner(), knowledgeTool, nil, nil, merger, writer)
 
 	user := domain.User{ID: "user-1", Username: "tester", CreatedAt: time.Now().UTC()}
 	if err := mem.UpsertUser(context.Background(), user); err != nil {

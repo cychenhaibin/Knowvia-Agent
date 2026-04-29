@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/provider"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/store"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/provider"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
 )
 
 type fakeKnowledgeRetrieveClient struct {

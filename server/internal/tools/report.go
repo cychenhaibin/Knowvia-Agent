@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/provider"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/provider"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/skillruntime"
 )
 

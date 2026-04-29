@@ -258,6 +258,12 @@ export interface ChatSource {
   score: number;
 }
 
+export interface ChatUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
 export interface PersistedChatMessage {
   id: string;
   sessionId: string;
@@ -268,6 +274,7 @@ export interface PersistedChatMessage {
   createdAt: string;
   completedAt?: string;
   sources?: ChatSource[];
+  usage?: ChatUsage;
 }
 
 export interface ChatStreamEvent {
@@ -276,6 +283,7 @@ export interface ChatStreamEvent {
   skill?: ChatSkill;
   error?: string;
   sources?: ChatSource[];
+  usage?: ChatUsage;
   session_id?: string;
   title?: string;
 }

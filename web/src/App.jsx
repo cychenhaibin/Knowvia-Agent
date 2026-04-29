@@ -1,602 +1,341 @@
 import React from 'react';
+import batteryIcon from './assets/ios-battery.svg';
+import cellularIcon from './assets/ios-cellular.svg';
 import appLogo from './assets/logo.png';
+import wifiIcon from './assets/ios-wifi.svg';
+
+const navItems = [
+  ['平台能力', '#capabilities'],
+  ['工作流', '#workflow'],
+  ['产品模块', '#product'],
+  ['场景', '#scenarios'],
+];
+
+const proof = [
+  ['知识驱动', '连接企业文档知识库，回答和任务都基于可信上下文。'],
+  ['执行可见', 'Run 时间线展示规划、检索、合并、写作和交付状态。'],
+  ['结果可追溯', '最终报告保留来源卡、片段命中和证据映射。'],
+];
+
+const problems = [
+  ['知识分散', '企业文档散落在不同平台，团队很难把已有沉淀转成可执行判断。'],
+  ['Agent 黑箱', '普通聊天式 AI 看不到执行步骤，也难以判断结论是否可靠。'],
+  ['交付难复查', '报告写完后很难回到来源证据，协作审阅成本高。'],
+];
 
 const capabilities = [
-  {
-    title: 'Yuque RAG',
-    description: '连接语雀知识库，同步文档与片段，在问题真正进入执行前先建立可信知识上下文。',
-    points: ['Space 连接与同步', '片段级检索与命中摘要', '内部知识与任务目标联动'],
-    accent: 'yuque',
-  },
-  {
-    title: 'Skills Layer',
-    description: '把总结、行动计划、自定义提示与 GitHub 导入技能挂到同一层，按任务切换执行策略。',
-    points: ['总结 / 行动计划', '自定义 Prompt 封装', 'GitHub 导入与复用'],
-    accent: 'skills',
-  },
-  {
-    title: 'Visible Runs',
-    description: 'Run 是核心对象。规划、检索、证据整理、报告写作逐步展开，而不是黑箱式 Agent 回答。',
-    points: ['任务建模为 Run', '步骤状态持续更新', '结果与过程一并保存'],
-    accent: 'runs',
-  },
-  {
-    title: 'Streaming UX',
-    description: '回复文本、步骤进度与检索信号实时反馈，让长任务执行过程始终可感知。',
-    points: ['SSE 事件流', '状态增量刷新', '长任务过程不中断'],
-    accent: 'stream',
-  },
+  ['知识库连接与同步', '接入语雀、飞书和内部资料源，持续同步目录、正文、片段索引和更新状态。'],
+  ['聊天问答', '围绕已挂载知识库回答问题，保留命中片段、上下文范围和来源路径。'],
+  ['Skills 调用', '将研究报告、行动计划、摘要整理等能力封装成可复用执行策略。'],
+  ['Run 任务创建', '把复杂问题建模为 Run，拆解计划、检索、证据合并、报告写作和最终交付。'],
+  ['执行时间线', '每一步都有状态、摘要和产物指向，让长任务不再是黑箱等待。'],
+  ['结构化报告与来源追溯', '最终回答、报告阶段和来源卡同时保存，方便审阅、复查和复用。'],
 ];
 
 const workflow = [
-  '连接知识库',
-  '发起任务',
-  '自动规划',
-  '检索内部知识',
-  '补充外部证据',
-  '整理证据',
-  '生成报告',
-  '交付结果',
+  ['01', '连接知识源', '挂载语雀、飞书或内部资料，建立可检索上下文。'],
+  ['02', '提出任务目标', '选择知识范围、模型和 Skill，明确交付要求。'],
+  ['03', '规划 Run', '系统拆解执行步骤并判断任务模式。'],
+  ['04', '检索与合并证据', '命中内部片段，整理来源卡和证据链。'],
+  ['05', '生成结构化报告', '输出最终回答、报告正文和行动建议。'],
+  ['06', '回溯来源', '从结论返回文档片段，支持审阅和团队复用。'],
 ];
 
-const previews = [
+const modules = [
   {
-    eyebrow: 'Workspace',
-    title: '主工作台',
-    description: '在同一界面里输入任务、挂载知识、选择 Skill，并观察流式执行状态持续推进。',
-    tags: ['Task Input', 'Skills', 'Knowledge Mount', 'Model'],
+    title: '统一任务入口',
+    body: '在同一工作台中完成提问、知识库挂载、Skill 选择和 Run 创建。',
+    points: ['聊天问答', '知识范围', 'Skill 选择'],
   },
   {
-    eyebrow: 'Run Detail',
-    title: 'Run 详情页',
-    description: '按时间线查看 planning、search、merge、writer 等步骤，并随时回看 final report 与 sources。',
-    tags: ['Timeline', 'Sources', 'Final Report'],
+    title: '可见执行过程',
+    body: '将复杂任务拆解为时间线步骤，持续展示规划、检索、证据合并和写作状态。',
+    points: ['步骤状态', '过程摘要', '阶段产物'],
   },
   {
-    eyebrow: 'Knowledge',
-    title: '知识库页',
-    description: '管理 Yuque 连接、同步状态与文档规模，为后续 hybrid research 持续准备内部证据。',
-    tags: ['Yuque Sync', 'KB Status', 'Document Stats'],
+    title: '企业知识连接',
+    body: '管理语雀、飞书和内部资料源的同步状态，保持可检索上下文持续更新。',
+    points: ['同步状态', '文档规模', '异常提示'],
+  },
+  {
+    title: '可复用执行能力',
+    body: '把研究报告、行动计划、竞品整理等团队方法沉淀为可调用 Skills。',
+    points: ['启用开关', '导入复用', '模式管理'],
   },
 ];
 
 const scenarios = [
-  {
-    title: '内部研究',
-    description: '输入研究问题，系统检索内部知识并组织证据，输出可交付结论。',
-    tags: ['Yuque', 'Evidence', 'Report'],
-  },
-  {
-    title: '竞品分析',
-    description: '把语雀沉淀与近期外部动态合并，形成结构化对比与洞察摘要。',
-    tags: ['Web', 'Sources', 'Merge'],
-  },
-  {
-    title: '增长复盘',
-    description: '汇总内部复盘文档与最近信号，生成可追溯的判断与下一步建议。',
-    tags: ['RAG', 'Timeline', 'Delivery'],
-  },
-  {
-    title: '行动计划生成',
-    description: '围绕目标自动规划、补证据、写行动建议，让任务从问题走到执行方案。',
-    tags: ['Action Plan', 'Skill', 'Run'],
-  },
+  ['研究分析', '把内部沉淀、外部材料和历史报告整理为可追溯研究结论。'],
+  ['增长复盘', '从实验记录和业务文档中提取问题、证据、优先级和行动计划。'],
+  ['知识问答', '围绕企业文档提问，降低重复沟通和人工查找成本。'],
+  ['客户支持', '将 FAQ、产品说明和历史案例转成可复查的回答依据。'],
 ];
 
-const compareCards = [
-  {
-    title: '普通聊天机器人',
-    lines: ['擅长即时回答', '过程通常不可见', '难回到结构化来源'],
-  },
-  {
-    title: '通用 Agent 框架',
-    lines: ['更偏开发者配置', '灵活但上手复杂', '不天然面向知识交付'],
-  },
-  {
-    title: 'Knowvia',
-    lines: ['面向知识工作台', '显式执行步骤', '结果与来源同步交付'],
-    featured: true,
-  },
+const runSteps = [
+  ['Planning', '已完成', '识别目标、交付格式和知识范围。'],
+  ['Yuque Search', '已完成', '命中 18 个内部知识片段。'],
+  ['Evidence Merge', '运行中', '正在构建报告证据链。'],
 ];
 
-const integrations = [
-  'Yuque',
-  'Google',
-  'Microsoft',
-  'GitHub',
-  'Go API',
-  'Python RAG',
-  'Postgres + pgvector',
-  'Redis',
-];
+function IosStatusBar() {
+  return (
+    <div className="phone-status" aria-label="iOS 状态栏">
+      <div className="phone-time">9:41</div>
+      <div className="phone-system-icons" aria-hidden="true">
+        <img className="phone-cellular" src={cellularIcon} alt="" />
+        <img className="phone-wifi" src={wifiIcon} alt="" />
+        <img className="phone-battery" src={batteryIcon} alt="" />
+      </div>
+    </div>
+  );
+}
 
-const stats = [
-  { value: 'kb_only / web_only / hybrid', label: '任务在规划阶段被明确分类' },
-  { value: 'SSE 实时事件流', label: '步骤状态与报告增量同屏更新' },
-  { value: 'Sources 可追溯', label: '每条结论都能回到知识片段或外部证据' },
-];
+function ProductPreview() {
+  return (
+    <div className="phone-showcase" aria-label="Knowvia Agent 手机界面预览">
+      <article className="phone-page">
+        <IosStatusBar />
+        <div className="phone-nav">
+          <button type="button" aria-label="菜单">☰</button>
+          <strong>Gemma 3n E4B</strong>
+          <span>T=0.05</span>
+        </div>
+        <div className="phone-body phone-chat-body">
+          <section className="chat-bubble chat-bubble-assistant">
+            <strong>Knowvia · Lite</strong>
+            <p>可以基于知识库回答，也可以创建 Run 执行更长的研究任务。</p>
+          </section>
+          <section className="chat-bubble chat-bubble-user">
+            <p>基于增长复盘空间，整理 Q2 漏斗问题并输出下周行动计划。</p>
+          </section>
+          <section className="chat-bubble chat-bubble-assistant">
+            <strong>Knowvia · Lite</strong>
+            <p>已挂载增长复盘空间，并调用结构化研究报告 Skill。将先检索内部片段，再生成报告草稿与来源映射。</p>
+            <div className="phone-tags">
+              <em>结构化研究报告</em>
+              <em>增长复盘空间</em>
+            </div>
+          </section>
+        </div>
+        <div className="phone-composer">
+          <span>输入任务或问题...</span>
+          <button type="button" aria-label="发送">↑</button>
+        </div>
+        <div className="phone-safe-bottom" aria-hidden="true">
+          <span />
+        </div>
+      </article>
 
-function Icon({ type }) {
-  const common = {
-    width: 24,
-    height: 24,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    xmlns: 'http://www.w3.org/2000/svg',
-  };
+      <article className="phone-page">
+        <IosStatusBar />
+        <div className="phone-title">
+          <span>运行中</span>
+          <h3>Q2 增长行动建议</h3>
+          <p>整理漏斗问题、证据来源和下周行动建议。</p>
+        </div>
+        <div className="phone-body">
+          <section className="phone-timeline">
+            {runSteps.map(([title, status, body]) => (
+              <div key={title}>
+                <i />
+                <div>
+                  <strong>{title}</strong>
+                  <p>{body}</p>
+                </div>
+                <em>{status}</em>
+              </div>
+            ))}
+          </section>
+          <section className="phone-card">
+            <span>YUQUE · 0.92</span>
+            <strong>Q2 增长复盘 / Onboarding 漏斗</strong>
+            <p>新用户在第二步转化下滑明显，应缩短引导路径并强化模板入口。</p>
+          </section>
+        </div>
+        <div className="phone-safe-bottom" aria-hidden="true">
+          <span />
+        </div>
+      </article>
+    </div>
+  );
+}
 
-  switch (type) {
-    case 'yuque':
-      return (
-        <svg {...common}>
-          <rect x="3.5" y="4" width="17" height="16" rx="4" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M8 8.5H16M8 12H13.5M8 15.5H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      );
-    case 'skills':
-      return (
-        <svg {...common}>
-          <path d="M12 3.5L14.6 8.65L20.25 9.47L16.12 13.5L17.1 19.2L12 16.52L6.9 19.2L7.88 13.5L3.75 9.47L9.4 8.65L12 3.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        </svg>
-      );
-    case 'runs':
-      return (
-        <svg {...common}>
-          <path d="M5 6.5H11M5 12H11M5 17.5H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="16.5" cy="6.5" r="1.5" fill="currentColor" />
-          <circle cx="16.5" cy="12" r="1.5" fill="currentColor" />
-          <circle cx="16.5" cy="17.5" r="1.5" fill="currentColor" />
-        </svg>
-      );
-    default:
-      return (
-        <svg {...common}>
-          <path d="M4 12H9L11.5 6L14.5 18L17 12H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-  }
+function SectionIntro({ eyebrow, title, children }) {
+  const renderedTitle = Array.isArray(title)
+    ? title.map((line) => (
+      <span className="title-line" key={line}>{line}</span>
+    ))
+    : title;
+
+  return (
+    <div className="section-intro">
+      <span>{eyebrow}</span>
+      <h2>{renderedTitle}</h2>
+      <p>{children}</p>
+    </div>
+  );
 }
 
 function App() {
   return (
-    <div className="page-shell">
-      <div className="page-noise" aria-hidden="true" />
-
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="Knowvia 首页">
-          <span className="brand-mark">
-            <img src={appLogo} alt="" className="brand-mark-image" />
-          </span>
-          <span>Knowvia</span>
+    <div className="site-shell">
+      <header className="site-header">
+        <a className="brand" href="#top" aria-label="Knowvia Agent 首页">
+          <img src={appLogo} alt="" />
+          <span>Knowvia Agent</span>
         </a>
-
-        <nav className="nav-links" aria-label="主导航">
-          <a href="#capabilities">能力</a>
-          <a href="#workflow">工作流</a>
-          <a href="#scenarios">场景</a>
-          <a href="#integrations">集成</a>
-          <a href="#cta">开始体验</a>
+        <nav aria-label="主导航">
+          {navItems.map(([label, href]) => (
+            <a href={href} key={href}>{label}</a>
+          ))}
         </nav>
-
-        <div className="nav-actions">
-          <a className="button button-primary" href="#cta">
-            立即体验
-          </a>
-        </div>
       </header>
 
       <main id="top">
-        <section className="hero section">
-          <div className="hero-copy reveal">
-            <div className="eyebrow">Knowledge-driven execution workspace</div>
-            <h1>把知识变成真正可执行的工作流</h1>
-            <p className="hero-description">
-              Knowvia 将语雀知识库、RAG 检索、Skills 与显式执行流程整合在同一工作台中，帮助用户从提问、检索到结构化交付完成整条链路，并确保每一步有迹可循。
+        <section className="hero">
+          <div className="hero-copy">
+            <span>企业知识执行工作台</span>
+            <h1>让企业知识进入可执行工作流</h1>
+            <p>
+              Knowvia Agent 连接企业文档知识库，把提问、检索、任务执行、报告生成和来源追溯整合到同一个工作台，让团队从知识沉淀走向可验证的交付结果。
             </p>
-
             <div className="hero-actions">
-              <a className="button button-primary" href="#cta">
-                立即体验
-              </a>
-              <a className="button button-secondary" href="#preview">
-                查看界面预览
-              </a>
-            </div>
-
-            <div className="hero-note">
-              不是泛用聊天机器人，也不是开发者框架首页。它围绕知识、执行、证据和交付展开。
-            </div>
-
-            <div className="stats-row hero-stats" aria-label="核心指标">
-              {stats.map((item) => (
-                <article key={item.value} className="stat-card">
-                  <strong>{item.value}</strong>
-                  <span>{item.label}</span>
-                </article>
-              ))}
+              <a className="primary-link" href="#product">查看产品能力</a>
+              <a className="secondary-link" href="#workflow">了解执行链路</a>
             </div>
           </div>
+          <ProductPreview />
+        </section>
 
-          <div className="hero-visual reveal reveal-delay">
-            <div className="workspace-window">
-              <div className="window-toolbar">
-                <div className="window-dots">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div className="window-title">Run Workspace</div>
-                <div className="window-status">Streaming</div>
-              </div>
+        <section className="proof-row" aria-label="产品原则">
+          {proof.map(([title, body]) => (
+            <article key={title}>
+              <strong>{title}</strong>
+              <p>{body}</p>
+            </article>
+          ))}
+        </section>
 
-              <div className="workspace-body">
-                <div className="workspace-main">
-                  <div className="panel task-panel">
-                    <div className="panel-label">Task</div>
-                    <div className="task-query">
-                      把语雀里的 Q2 增长复盘和最近 7 天竞品动态整合成行动计划
-                    </div>
-                    <div className="task-meta">
-                      <span>Mounted: Yuque KB</span>
-                      <span>Skill: Action Plan</span>
-                      <span>Model: QuickQue Lite</span>
-                    </div>
-                  </div>
-
-                  <div className="panel step-panel">
-                    <div className="panel-head">
-                      <span className="panel-label">Run Steps</span>
-                      <span className="panel-state">live</span>
-                    </div>
-                    <div className="step-list">
-                      {['Planning', 'Yuque Search', 'Web Evidence', 'Evidence Merge', 'Report Writer'].map(
-                        (step, index) => (
-                          <div
-                            key={step}
-                            className={`step-item ${index < 4 ? 'is-complete' : 'is-active'}`}
-                          >
-                            <span className="step-bullet" />
-                            <div>
-                              <strong>{step}</strong>
-                              <p>
-                                {index === 0 && 'Classified goal as hybrid_research.'}
-                                {index === 1 && 'Matched 6 snippets from 2 Yuque repos.'}
-                                {index === 2 && 'Fetched recent competitor signals and pages.'}
-                                {index === 3 && 'Merged internal notes with external evidence.'}
-                                {index === 4 && 'Drafting structured action plan and delivery.'}
-                              </p>
-                            </div>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="workspace-side">
-                  <div className="panel report-panel">
-                    <div className="panel-label">Final Report</div>
-                    <div className="report-card">
-                      <div className="report-title">Q2 增长行动建议</div>
-                      <ul>
-                        <li>优先修复漏斗中部流失，并保留现有高转化素材结构。</li>
-                        <li>竞品近 7 天侧重模板化 onboarding，建议补齐引导实验。</li>
-                        <li>下周优先推进落地页 AB、内容沉淀与周报追踪机制。</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="panel sources-panel">
-                    <div className="panel-head">
-                      <span className="panel-label">Sources</span>
-                      <span className="source-count">12 linked</span>
-                    </div>
-                    <div className="source-card">
-                      <span className="source-tag source-tag-yuque">Yuque snippet</span>
-                      <strong>Q2 增长复盘 / Onboarding 漏斗</strong>
-                      <p>“新用户在第二步转化下滑明显，建议缩短引导路径并强化模板入口。”</p>
-                    </div>
-                    <div className="source-card">
-                      <span className="source-tag source-tag-web">Web source</span>
-                      <strong>Competitor launch notes / last 7 days</strong>
-                      <p>竞品在首页新增 role-based template 入口，并强化导入流程。</p>
-                    </div>
-                    <div className="source-card">
-                      <span className="source-tag source-tag-report">Structured report</span>
-                      <strong>Action Plan v1</strong>
-                      <p>按优先级整理为本周实验、内容整理、数据跟踪三条执行线。</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="workspace-phone">
-              <div className="phone-shell">
-                <div className="phone-notch" />
-                <div className="phone-header">
-                  <div>
-                    <div className="phone-kicker">Knowvia</div>
-                    <strong>Run Preview</strong>
-                  </div>
-                  <span className="phone-live">live</span>
-                </div>
-
-                <div className="phone-task-card">
-                  <span className="phone-pill">Yuque KB + Action Plan</span>
-                  <p>把 Q2 增长复盘和最近 7 天竞品动态整理成行动计划</p>
-                </div>
-
-                <div className="phone-steps">
-                  <div className="phone-step">
-                    <span className="phone-step-dot" />
-                    <div>
-                      <strong>Planning</strong>
-                      <p>Classified as hybrid_research</p>
-                    </div>
-                  </div>
-                  <div className="phone-step">
-                    <span className="phone-step-dot" />
-                    <div>
-                      <strong>Yuque + Web</strong>
-                      <p>Matched snippets and fetched external evidence</p>
-                    </div>
-                  </div>
-                  <div className="phone-step">
-                    <span className="phone-step-dot phone-step-dot-active" />
-                    <div>
-                      <strong>Report Writer</strong>
-                      <p>Writing final action plan with linked sources</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="phone-source-card">
-                  <span className="phone-pill phone-pill-soft">Sources linked</span>
-                  <strong>Yuque snippet + Web source + Structured report</strong>
-                  <p>每条结论都可回到知识片段或外部证据。</p>
-                </div>
-              </div>
-            </div>
+        <section className="section problem-section">
+          <SectionIntro
+            eyebrow="Why Knowvia"
+            title={['企业知识工作不缺 AI，', '缺的是可信执行']}
+          >
+            真正困难的不是生成一段回答，而是把知识、步骤、证据和交付连接起来。
+          </SectionIntro>
+          <div className="problem-grid">
+            {problems.map(([title, body]) => (
+              <article key={title}>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
           </div>
         </section>
 
         <section className="section" id="capabilities">
-          <div className="section-heading reveal">
-            <div className="eyebrow">Core capabilities</div>
-            <h2>不是泛化 AI 壳子，而是围绕知识与执行闭环设计</h2>
-            <p>
-              Knowvia 的核心不是“回答得像 AI”，而是把检索、步骤、证据和交付组织成一个可持续复用的工作台。
-            </p>
-          </div>
-
+          <SectionIntro eyebrow="平台能力" title={['围绕知识、执行和证据', '建立能力闭环']}>
+            从知识连接到报告交付，Knowvia Agent 将企业知识组织成可执行、可复查、可持续复用的工作流。
+          </SectionIntro>
           <div className="capability-grid">
-            {capabilities.map((item, index) => (
-              <article key={item.title} className={`capability-card reveal reveal-stagger-${index + 1}`}>
-                <div className="capability-icon">
-                  <Icon type={item.accent} />
-                </div>
-                <div className="capability-title-row">
-                  <h3>{item.title}</h3>
-                  <span className="capability-index">0{index + 1}</span>
-                </div>
-                <p>{item.description}</p>
-                <div className="signal-lines" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <ul className="point-list">
-                  {item.points.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
+            {capabilities.map(([title, body]) => (
+              <article key={title}>
+                <h3>{title}</h3>
+                <p>{body}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="section section-tinted" id="workflow">
-          <div className="section-heading reveal">
-            <div className="eyebrow">Visible workflow</div>
-            <h2>你看到的不只是结果，而是任务如何被完成</h2>
-            <p>
-              任务从发起到交付沿着明确链路推进。规划、检索、证据整理与写作全部作为步骤暴露给用户，而不是隐藏在一个模糊的 agent loop 里。
-            </p>
-          </div>
-
-          <div className="workflow-rail reveal">
-            {workflow.map((step, index) => (
-              <div key={step} className="workflow-node">
-                <div className="workflow-number">{index + 1}</div>
-                <div className="workflow-card">
-                  <strong>{step}</strong>
-                  <span>
-                    {index === 0 && '挂载语雀空间与内部资料'}
-                    {index === 1 && '输入明确目标与交付要求'}
-                    {index === 2 && '分类为 kb_only / web_only / hybrid'}
-                    {index === 3 && '命中片段、摘要与关键上下文'}
-                    {index === 4 && '引入近期外部来源补齐判断'}
-                    {index === 5 && '清洗冲突、合并证据、形成结构'}
-                    {index === 6 && '输出结构化报告与建议'}
-                    {index === 7 && '保留 sources 与 artifacts 供回看'}
-                  </span>
+        <section className="section workflow-section" id="workflow">
+          <SectionIntro eyebrow="Workflow" title={['从问题到报告，', '执行过程清晰可见']}>
+            Run 将复杂任务拆成连续步骤，让团队知道任务正在做什么、依据是什么、结果如何形成。
+          </SectionIntro>
+          <div className="workflow-list">
+            {workflow.map(([number, title, body]) => (
+              <article key={title}>
+                <span>{number}</span>
+                <div>
+                  <strong>{title}</strong>
+                  <p>{body}</p>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </section>
 
-        <section className="section" id="preview">
-          <div className="section-heading reveal">
-            <div className="eyebrow">Product preview</div>
-            <h2>围绕任务闭环设计，而不是堆砌功能噪音</h2>
-            <p>
-              界面重点放在工作台、Run 详情和知识准备三部分，让用户始终知道任务在哪一步、依据来自哪里、最终产出是什么。
-            </p>
-          </div>
-
-          <div className="preview-grid">
-            {previews.map((item, index) => (
-              <article key={item.title} className={`preview-card reveal reveal-stagger-${index + 1}`}>
-                <div className="preview-window">
-                  <div className="preview-bar">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                  <div className="preview-canvas">
-                    <div className="mini-nav" />
-                    <div className="mini-layout">
-                      <div className="mini-panel mini-panel-large" />
-                      <div className="mini-column">
-                        <div className="mini-panel mini-panel-mid" />
-                        <div className="mini-panel mini-panel-small" />
-                      </div>
-                    </div>
-                  </div>
+        <section className="section product-section" id="product">
+          <SectionIntro eyebrow="Product Suite" title={['从知识准备到结果交付，', '形成一体化工作台']}>
+            Knowvia Agent 将企业知识、执行策略、任务过程和交付结果组织在同一个产品体系中，减少跨工具切换，让团队围绕同一份证据协作。
+          </SectionIntro>
+          <div className="suite-layout">
+            <article className="suite-preview">
+              <div className="suite-preview-head">
+                <span>Active Run</span>
+                <strong>Q2 增长行动建议</strong>
+              </div>
+              <div className="suite-preview-body">
+                <div className="suite-task">
+                  <span>任务目标</span>
+                  <p>基于增长复盘空间，整理漏斗问题、证据来源和下周行动建议。</p>
                 </div>
-                <div className="preview-copy">
-                  <div className="preview-eyebrow">{item.eyebrow}</div>
+                <div className="suite-steps">
+                  {runSteps.map(([title, status]) => (
+                    <div key={title}>
+                      <i />
+                      <strong>{title}</strong>
+                      <span>{status}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="suite-evidence">
+                  <span>来源证据</span>
+                  <strong>Q2 增长复盘 / Onboarding 漏斗</strong>
+                  <p>新用户在第二步转化下滑明显，应缩短引导路径并强化模板入口。</p>
+                </div>
+              </div>
+            </article>
+
+            <div className="suite-cards">
+              {modules.map((item, index) => (
+                <article className="suite-card" key={item.title}>
+                  <span>{String(index + 1).padStart(2, '0')}</span>
                   <h3>{item.title}</h3>
-                  <p>{item.description}</p>
-                  <div className="tag-row">
-                    {item.tags.map((tag) => (
-                      <span key={tag} className="tag">
-                        {tag}
-                      </span>
+                  <p>{item.body}</p>
+                  <div>
+                    {item.points.map((point) => (
+                      <em key={point}>{point}</em>
                     ))}
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section section-tinted" id="scenarios">
-          <div className="section-heading reveal">
-            <div className="eyebrow">Use cases</div>
-            <h2>适合真正需要知识和交付的工作</h2>
-            <p>
-              输入一个目标，系统去检索、整理和写作。重点不是多会聊天，而是最终能形成对业务有用的结构化输出。
-            </p>
-          </div>
-
-          <div className="scenario-grid">
-            {scenarios.map((item, index) => (
-              <article key={item.title} className={`scenario-card reveal reveal-stagger-${index + 1}`}>
-                <h3>{item.title}</h3>
-                <p>{item.description}</p>
-                <div className="tag-row">
-                  {item.tags.map((tag) => (
-                    <span key={tag} className="tag">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section" id="differentiation">
-          <div className="section-heading reveal">
-            <div className="eyebrow">Why Knowvia</div>
-            <h2>面向知识工作，而不是把一切都伪装成万能 AI</h2>
-            <p>
-              它把任务拆成可见步骤，把结论挂回来源，把技能沉淀成可复用层。产品价值在工作如何完成，而不是一句答案如何包装。
-            </p>
-          </div>
-
-          <div className="compare-grid">
-            {compareCards.map((item, index) => (
-              <article
-                key={item.title}
-                className={`compare-card ${item.featured ? 'compare-card-featured' : ''} reveal reveal-stagger-${index + 1}`}
-              >
-                <h3>{item.title}</h3>
-                <ul className="point-list">
-                  {item.lines.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section section-tinted" id="integrations">
-          <div className="section-heading reveal">
-            <div className="eyebrow">Integrations & trust</div>
-            <h2>围绕真实能力构建，而不是装饰性 logo 墙</h2>
-            <p>
-              Knowvia 以语雀知识、Go API、Python RAG 与持久化执行链路为基础，服务于真正要完成研究和交付的流程。
-            </p>
-          </div>
-
-          <div className="integration-panel reveal">
-            <div className="integration-grid">
-              {integrations.map((item) => (
-                <div key={item} className="integration-tile">
-                  {item}
-                </div>
+                </article>
               ))}
             </div>
-            <div className="trust-copy">
-              <div className="trust-row">
-                <strong>Grounded retrieval</strong>
-                <span>内部语雀知识与外部网页证据并行整理</span>
-              </div>
-              <div className="trust-row">
-                <strong>Durable runs</strong>
-                <span>Run、steps、artifacts 与 sources 作为一等对象持久保存</span>
-              </div>
-              <div className="trust-row">
-                <strong>Visible delivery</strong>
-                <span>通过 SSE 事件流持续反馈执行状态与报告生成过程</span>
-              </div>
-            </div>
           </div>
         </section>
 
-        <section className="section cta-section" id="cta">
-          <div className="cta-card reveal">
-            <div>
-              <div className="eyebrow">Start with one run</div>
-              <h2>把内部知识真正变成行动与交付</h2>
-              <p>
-                从知识连接、执行规划到结构化报告，Knowvia 帮你把复杂任务收束进同一条可追踪链路。
-              </p>
-            </div>
-            <div className="cta-actions">
-              <a className="button button-primary" href="#">
-                立即体验
-              </a>
-              <a className="button button-secondary" href="#preview">
-                查看工作台预览
-              </a>
-            </div>
+        <section className="section" id="scenarios">
+          <SectionIntro eyebrow="Use Cases" title={['适合需要可信交付的', '企业知识场景']}>
+            当团队需要基于内部知识完成研究、复盘、支持和决策，Knowvia Agent 能把过程和结果一并交付。
+          </SectionIntro>
+          <div className="scenario-grid">
+            {scenarios.map(([title, body]) => (
+              <article key={title}>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
           </div>
+        </section>
+
+        <section className="cta-section">
+          <span>Knowvia Agent</span>
+          <h2>
+            <span className="title-line">让企业知识进入可执行、</span>
+            <span className="title-line">可验证、可复用的工作流</span>
+          </h2>
+          <a className="primary-link" href="#top">回到顶部</a>
         </section>
       </main>
-
-      <footer className="footer">
-        <div>
-          <div className="brand footer-brand">
-            <span className="brand-mark">
-              <img src={appLogo} alt="" className="brand-mark-image" />
-            </span>
-            <span>Knowvia</span>
-          </div>
-          <p>Grounded RAG, visible execution, reusable skills.</p>
-        </div>
-        <div className="footer-links">
-          <a href="#capabilities">能力</a>
-          <a href="#scenarios">场景</a>
-          <a href="#integrations">集成</a>
-          <a href="#cta">开始体验</a>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
 )
 
 var (
@@ -18,7 +17,12 @@ var (
 	ErrArtifactFileNotFound     = errors.New("skill artifact file not found")
 )
 
-func LoadFile(ctx context.Context, repo store.Store, userID, artifactID, filePath string) (domain.SkillArtifactFile, []byte, error) {
+type ArtifactFileStore interface {
+	GetSkillArtifact(context.Context, string, string) (domain.SkillArtifact, error)
+	ListSkillArtifactFiles(context.Context, string, string) ([]domain.SkillArtifactFile, error)
+}
+
+func LoadFile(ctx context.Context, repo ArtifactFileStore, userID, artifactID, filePath string) (domain.SkillArtifactFile, []byte, error) {
 	normalizedPath := normalizePath(filePath)
 	if normalizedPath == "" {
 		return domain.SkillArtifactFile{}, nil, ErrArtifactFilePathRequired

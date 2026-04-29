@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/knowledge"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/textutil"
 )
 
 type WebPageExtractTool struct {
@@ -40,7 +40,7 @@ func (t *WebPageExtractTool) Extract(ctx context.Context, evidences []domain.Evi
 		if n == 0 {
 			continue
 		}
-		body := knowledge.NormalizeBody(string(bodyBytes[:n]))
+		body := textutil.NormalizeBody(string(bodyBytes[:n]))
 		body = strings.TrimSpace(body)
 		if body == "" {
 			continue

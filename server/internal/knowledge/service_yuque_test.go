@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/provider/yuque"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 )
 
@@ -15,7 +16,7 @@ func TestPrepareYuqueSyncDocumentsBuildsMergedSnapshot(t *testing.T) {
 		UserID:   "user-1",
 		Provider: domain.ProviderYuque,
 	}
-	currentDocs := []DocMeta{
+	currentDocs := []yuque.DocMeta{
 		{ID: 1, Slug: "existing", Title: "Existing", UpdatedAt: "2026-04-01T00:00:00Z"},
 		{ID: 2, Slug: "updated", Title: "Updated", UpdatedAt: "2026-04-28T08:00:00Z"},
 		{ID: 3, Slug: "new-doc", Title: "New", UpdatedAt: "2026-04-28T08:30:00Z"},
@@ -94,7 +95,7 @@ func TestPrepareYuqueSyncDocumentsDefersRemainingChangesAfterRateLimit(t *testin
 		UserID:   "user-1",
 		Provider: domain.ProviderYuque,
 	}
-	currentDocs := []DocMeta{
+	currentDocs := []yuque.DocMeta{
 		{ID: 1, Slug: "existing", Title: "Existing", UpdatedAt: "2026-04-01T00:00:00Z"},
 		{ID: 2, Slug: "updated", Title: "Updated", UpdatedAt: "2026-04-28T08:00:00Z"},
 		{ID: 3, Slug: "new-doc", Title: "New", UpdatedAt: "2026-04-28T08:30:00Z"},
@@ -142,7 +143,7 @@ func TestPrepareYuqueSyncDocumentsDefersRemainingChangesAfterRateLimit(t *testin
 		now,
 		func(slug string) (string, error) {
 			if slug == "updated" {
-				return "", &APIError{StatusCode: 429, Message: "rate limited", RetryAfter: 2 * time.Hour}
+				return "", &yuque.APIError{StatusCode: 429, Message: "rate limited", RetryAfter: 2 * time.Hour}
 			}
 			t.Fatalf("fetchBody should stop before requesting slug %q", slug)
 			return "", nil

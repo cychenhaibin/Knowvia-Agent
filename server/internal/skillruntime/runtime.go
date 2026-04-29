@@ -15,6 +15,17 @@ type RevisionManifest struct {
 	ToolAllowlist []string          `json:"toolAllowlist,omitempty"`
 }
 
+type runtimeSpecJSON struct {
+	SchemaVersion string              `json:"schemaVersion"`
+	SkillKind     domain.SkillKind    `json:"skillKind"`
+	ResponseMode  string              `json:"responseMode"`
+	Instructions  string              `json:"instructions"`
+	PlannerPolicy map[string]string   `json:"plannerPolicy,omitempty"`
+	ToolPolicy    map[string][]string `json:"toolPolicy,omitempty"`
+	OutputPolicy  map[string]string   `json:"outputPolicy,omitempty"`
+	Metadata      map[string]string   `json:"metadata,omitempty"`
+}
+
 func BuildSpec(skill domain.Skill) domain.SkillRuntimeSpec {
 	toolAllowlist := []string{
 		"knowledge.search",
@@ -70,7 +81,7 @@ func BuildSnapshot(
 	now time.Time,
 ) (domain.SkillRuntimeSnapshot, error) {
 	spec := BuildSpec(skill)
-	rawSpec, err := json.Marshal(spec)
+	rawSpec, err := marshalRuntimeSpec(spec)
 	if err != nil {
 		return domain.SkillRuntimeSnapshot{}, err
 	}
@@ -93,11 +104,7 @@ func BuildSnapshot(
 }
 
 func ParseSpec(raw string) (domain.SkillRuntimeSpec, error) {
-	var spec domain.SkillRuntimeSpec
-	if err := json.Unmarshal([]byte(raw), &spec); err != nil {
-		return domain.SkillRuntimeSpec{}, err
-	}
-	return spec, nil
+	return unmarshalRuntimeSpec(raw)
 }
 
 func EncodeRevisionManifest(skill domain.Skill) (string, error) {
@@ -151,6 +158,47 @@ func clonePlannerPolicy(src map[string]string) map[string]string {
 	dst := make(map[string]string, len(src))
 	for key, value := range src {
 		dst[key] = value
+	}
+	return dst
+}
+
+func marshalRuntimeSpec(spec domain.SkillRuntimeSpec) ([]byte, error) {
+	return json.Marshal(runtimeSpecJSON{
+		SchemaVersion: spec.SchemaVersion,
+		SkillKind:     spec.SkillKind,
+		ResponseMode:  spec.ResponseMode,
+		Instructions:  spec.Instructions,
+		PlannerPolicy: clonePlannerPolicy(spec.PlannerPolicy),
+		ToolPolicy:    cloneToolPolicy(spec.ToolPolicy),
+		OutputPolicy:  clonePlannerPolicy(spec.OutputPolicy),
+		Metadata:      clonePlannerPolicy(spec.Metadata),
+	})
+}
+
+func unmarshalRuntimeSpec(raw string) (domain.SkillRuntimeSpec, error) {
+	var payload runtimeSpecJSON
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return domain.SkillRuntimeSpec{}, err
+	}
+	return domain.SkillRuntimeSpec{
+		SchemaVersion: payload.SchemaVersion,
+		SkillKind:     payload.SkillKind,
+		ResponseMode:  payload.ResponseMode,
+		Instructions:  payload.Instructions,
+		PlannerPolicy: clonePlannerPolicy(payload.PlannerPolicy),
+		ToolPolicy:    cloneToolPolicy(payload.ToolPolicy),
+		OutputPolicy:  clonePlannerPolicy(payload.OutputPolicy),
+		Metadata:      clonePlannerPolicy(payload.Metadata),
+	}, nil
+}
+
+func cloneToolPolicy(src map[string][]string) map[string][]string {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string][]string, len(src))
+	for key, values := range src {
+		dst[key] = append([]string(nil), values...)
 	}
 	return dst
 }

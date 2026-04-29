@@ -1,5 +1,5 @@
 import {Ionicons} from '@expo/vector-icons';
-import {Pressable, Text, TextInput, View} from 'react-native';
+import {Pressable, Switch, Text, TextInput, View} from 'react-native';
 import React from 'react';
 import {fontSizes} from '@/theme/typography';
 import type {AppColors} from '@/theme/colors';
@@ -13,11 +13,16 @@ export function ChatComposer({
   selectedSkillTitle,
   showSkillChip,
   activeKnowledgeLabels,
+  enableSearch,
+  searchLabel,
+  searchStateLabel,
   onInputChange,
   onSend,
   onOpenComposerMenu,
   onOpenSkillPicker,
   onOpenKnowledgePicker,
+  onEnableSearchChange,
+  onHeightChange,
 }: {
   colors: AppColors;
   input: string;
@@ -27,18 +32,31 @@ export function ChatComposer({
   selectedSkillTitle?: string;
   showSkillChip: boolean;
   activeKnowledgeLabels: string[];
+  enableSearch: boolean;
+  searchLabel: string;
+  searchStateLabel: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
   onOpenComposerMenu: () => void;
   onOpenSkillPicker: () => void;
   onOpenKnowledgePicker: () => void;
+  onEnableSearchChange: (value: boolean) => void;
+  onHeightChange?: (height: number) => void;
 }) {
+  const canSend = input.trim().length > 0 && !streaming;
+
   return (
     <View
-      className="gap-3 px-5 pt-3"
+      className="gap-3 px-5"
+      onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
       style={{
-        paddingBottom: composerBottomPadding,
-        backgroundColor: colors.background,
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: -20,
+        backgroundColor: 'transparent',
+        zIndex: 20,
+        elevation: 20,
       }}>
       {showSkillChip || activeKnowledgeLabels.length > 0 ? (
         <View className="flex-row flex-wrap gap-2">
@@ -69,47 +87,95 @@ export function ChatComposer({
         </View>
       ) : null}
 
-      <View className="rounded-[28px] p-2" style={{backgroundColor: colors.surface}}>
-        <View className="flex-row items-center gap-3">
+      <View
+        className="rounded-[24px] px-2 pb-2 pt-4"
+        style={{
+          backgroundColor: colors.surface,
+          shadowColor: colors.shadow,
+          shadowOffset: {width: 0, height: 8},
+          shadowOpacity: 0.02,
+          shadowRadius: 18,
+          elevation: 6,
+        }}>
+        <TextInput
+          multiline
+          value={input}
+          onChangeText={onInputChange}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textTertiary}
+          style={{
+            // minHeight: 48,
+            maxHeight: 118,
+            lineHeight: 26,
+            color: colors.textPrimary,
+            textAlignVertical: 'top',
+            fontSize: fontSizes.md,
+            paddingHorizontal: 6,
+            paddingTop: 0,
+            paddingBottom: 0,
+            marginVertical: 0,
+            includeFontPadding: false,
+          }}
+        />
+
+        <View className="mt-3 flex-row items-center gap-2">
           <Pressable
-            className="h-11 w-11 items-center justify-center rounded-full"
-            style={{backgroundColor: colors.surfaceMuted}}
+            className="items-center justify-center ml-1 rounded-full"
+            style={({pressed}) => ({
+              backgroundColor: pressed ? colors.surfaceMuted : 'transparent',
+            })}
             onPress={onOpenComposerMenu}>
             <Ionicons name="add" size={24} color={colors.textPrimary} />
           </Pressable>
 
-          <TextInput
-            multiline
-            value={input}
-            onChangeText={onInputChange}
-            placeholder={placeholder}
-            placeholderTextColor={colors.textTertiary}
-            style={{
-              flex: 1,
-              minHeight: 22,
-              maxHeight: 120,
-              lineHeight: 22,
-              color: colors.textPrimary,
-              textAlignVertical: 'center',
-              fontSize: fontSizes.md,
-              paddingVertical: 0,
-              marginVertical: 0,
-              includeFontPadding: false,
-            }}
-          />
+          <View className="flex-row items-center">
+            <Switch
+              value={enableSearch}
+              onValueChange={onEnableSearchChange}
+              trackColor={{false: colors.surfaceMuted, true: colors.brandSoft}}
+              thumbColor={enableSearch ? colors.brand : colors.textTertiary}
+              ios_backgroundColor={colors.surfaceMuted}
+              style={{transform: [{scaleX: 0.72}, {scaleY: 0.72}]}}
+            />
+            <View className="flex-row items-center">
+              <Text
+                className="text-[10px] font-semibold"
+                numberOfLines={1}
+                style={{color: enableSearch ? colors.brand : colors.textMuted}}>
+                {searchLabel}
+              </Text>
+              <Text
+                className="text-[10px]"
+                numberOfLines={1}
+                style={{color: colors.textTertiary}}>
+                {searchStateLabel}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-1" />
+
+          {/* <View
+            className="h-11 w-11 items-center justify-center rounded-full"
+            style={{borderColor: colors.border, borderWidth: 1}}>
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.icon} />
+          </View>
+
+          <View className="h-11 w-11 items-center justify-center rounded-full">
+            <Ionicons name="mic-outline" size={28} color={colors.icon} />
+          </View> */}
 
           <Pressable
-            className="h-11 w-11 items-center justify-center rounded-full"
+            className="h-10 w-10 items-center justify-center rounded-full"
             style={{
-              backgroundColor:
-                !input.trim() || streaming ? colors.surfaceMuted : colors.brand,
+              backgroundColor: canSend ? colors.brand : colors.surfaceMuted,
             }}
-            disabled={!input.trim() || streaming}
+            disabled={!canSend}
             onPress={onSend}>
             <Ionicons
               name="arrow-up"
               size={20}
-              color={!input.trim() || streaming ? colors.textMuted : colors.surface}
+              color={canSend ? colors.surface : colors.textTertiary}
             />
           </Pressable>
         </View>

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/persistence"
 )
 
 var ErrDisabled = errors.New("skill installation disabled")
@@ -35,7 +35,7 @@ func ResolveInstallationRecord(
 		return record, nil
 	}
 	if definitionID == "" {
-		return domain.SkillInstallationRecord{}, store.ErrNotFound
+		return domain.SkillInstallationRecord{}, persistence.ErrNotFound
 	}
 
 	details, err := st.GetSkillDefinitionDetails(ctx, userID, definitionID)
@@ -51,7 +51,7 @@ func ResolveInstallationRecord(
 
 func selectEnabledInstallation(installations []domain.SkillInstallation) (string, error) {
 	if len(installations) == 0 {
-		return "", store.ErrNotFound
+		return "", persistence.ErrNotFound
 	}
 	var candidate *domain.SkillInstallation
 	for i := range installations {

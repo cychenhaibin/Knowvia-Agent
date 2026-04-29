@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/store"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
 )
 
 func TestResolveInstallationRecordFallsBackWhenDefaultIsDisabled(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/store"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/config"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
-	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/store"
 )
 
 type staticGoogleVerifier struct {
@@ -38,7 +38,12 @@ func testAuthConfig() config.Config {
 
 func TestLoginWithGoogleCreatesUserAndIdentity(t *testing.T) {
 	mem := store.NewMemoryStore()
-	service := NewServiceWithGoogleVerifier(mem, testAuthConfig(), staticGoogleVerifier{
+	service := NewServiceWithGoogleVerifier(ServiceDeps{
+		Users:      mem,
+		Identities: mem,
+		Sessions:   mem,
+		ChatModels: mem,
+	}, testAuthConfig(), staticGoogleVerifier{
 		identity: VerifiedGoogleIdentity{
 			Subject:       "google-subject-1",
 			Email:         "haibinchenleo@gmail.com",
@@ -82,7 +87,12 @@ func TestLoginWithGoogleCreatesDistinctUserWhenEmailAlreadyExists(t *testing.T) 
 		t.Fatalf("upsert existing user: %v", err)
 	}
 
-	service := NewServiceWithGoogleVerifier(mem, testAuthConfig(), staticGoogleVerifier{
+	service := NewServiceWithGoogleVerifier(ServiceDeps{
+		Users:      mem,
+		Identities: mem,
+		Sessions:   mem,
+		ChatModels: mem,
+	}, testAuthConfig(), staticGoogleVerifier{
 		identity: VerifiedGoogleIdentity{
 			Subject:       "google-subject-2",
 			Email:         "haibinchenleo@gmail.com",
@@ -143,7 +153,12 @@ func TestLoginWithMicrosoftKeepsProviderIdentitySeparateFromSameEmailUser(t *tes
 		t.Fatalf("upsert existing email user: %v", err)
 	}
 
-	service := NewServiceWithMicrosoftVerifier(mem, testAuthConfig(), staticMicrosoftVerifier{
+	service := NewServiceWithMicrosoftVerifier(ServiceDeps{
+		Users:      mem,
+		Identities: mem,
+		Sessions:   mem,
+		ChatModels: mem,
+	}, testAuthConfig(), staticMicrosoftVerifier{
 		identity: VerifiedMicrosoftIdentity{
 			Subject:       "microsoft-subject-1",
 			Email:         "haibinchenleo@outlook.com",

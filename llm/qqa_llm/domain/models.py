@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -131,7 +131,7 @@ class ModelProfile:
     base_url: str = ""
     api_key_ref: str = ""
     model_name: str = ""
-    temperature: float = 0.2
+    temperature: Optional[float] = None
     max_tokens: int = 4096
     is_default: bool = False
     updated_at: str = ""
@@ -149,7 +149,7 @@ class ResolvedModelProfile:
     base_url: str
     api_key: str
     model_name: str
-    temperature: float = 0.2
+    temperature: Optional[float] = None
     max_tokens: int = 4096
 
     def to_trace_dict(self) -> Dict[str, Any]:

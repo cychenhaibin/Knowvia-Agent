@@ -16,10 +16,6 @@ CREATE TABLE IF NOT EXISTS auth_identities (
   UNIQUE (provider, provider_subject)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
-  ON users (lower(email))
-  WHERE email <> '';
-
 CREATE INDEX IF NOT EXISTS idx_auth_identities_user_provider
   ON auth_identities (user_id, provider);
 
