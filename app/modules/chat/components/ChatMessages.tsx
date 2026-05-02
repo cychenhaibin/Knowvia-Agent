@@ -99,11 +99,11 @@ export function ChatMessages({
                 style={{
                   maxWidth: isUser ? '84%' : '100%',
                   backgroundColor: isUser ? colors.surface : 'transparent',
-                  shadowColor: colors.shadow,
-                  shadowOffset: {width: 0, height: 4},
-                  shadowOpacity: isUser ? 0.06 : 0,
-                  shadowRadius: isUser ? 10 : 0,
-                  elevation: isUser ? 2 : 0,
+                  // shadowColor: colors.shadow,
+                  // shadowOffset: {width: 0, height: 4},
+                  // shadowOpacity: isUser ? 0.06 : 0,
+                  // shadowRadius: isUser ? 10 : 0,
+                  // elevation: isUser ? 2 : 0,
                 }}>
                 {!isUser ? (
                   <View className="mb-3 flex-row items-center gap-2">
