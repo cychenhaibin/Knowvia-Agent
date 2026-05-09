@@ -11,6 +11,13 @@ const (
 	RunModeHybrid RunMode = "hybrid"
 )
 
+type RunKind string
+
+const (
+	RunKindResearch           RunKind = "research"
+	RunKindGitHubRepoAnalysis RunKind = "github_repo_analysis"
+)
+
 type RunStatus string
 
 const (
@@ -40,6 +47,11 @@ const (
 	StepKindEvidenceMerge StepKind = "evidence_merge"
 	StepKindReportWriter  StepKind = "report_writer"
 	StepKindFinalize      StepKind = "finalize"
+
+	StepKindGitHubRepoFetch      StepKind = "github_repo_fetch"
+	StepKindGitHubRepoScan       StepKind = "github_repo_scan"
+	StepKindCodeStructureAnalyze StepKind = "code_structure_analyze"
+	StepKindCodeWikiWriter       StepKind = "code_wiki_writer"
 )
 
 type ArtifactKind string
@@ -50,13 +62,18 @@ const (
 	ArtifactKindReportGrounding ArtifactKind = "report_grounding"
 	ArtifactKindReport          ArtifactKind = "report"
 	ArtifactKindFinalAnswer     ArtifactKind = "final_answer"
+	ArtifactKindCodeWiki        ArtifactKind = "code_wiki"
 )
 
 type Run struct {
 	ID                     string
 	UserID                 string
+	Kind                   RunKind
 	Title                  string
 	Goal                   string
+	SourceURL              string
+	TaskSessionID          string
+	TaskPrompt             string
 	RequestedMode          RunMode
 	KnowledgeConnectionIDs []string
 	SkillInstallationID    string

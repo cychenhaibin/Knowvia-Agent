@@ -29,6 +29,8 @@ func (h *Handler) createRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title                  string         `json:"title"`
 		Goal                   string         `json:"goal"`
+		Kind                   domain.RunKind `json:"kind"`
+		SourceURL              string         `json:"source_url"`
 		Mode                   domain.RunMode `json:"mode"`
 		KnowledgeConnectionIDs []string       `json:"knowledge_connection_ids"`
 		SkillInstallationID    string         `json:"skill_installation_id"`
@@ -45,6 +47,8 @@ func (h *Handler) createRun(w http.ResponseWriter, r *http.Request) {
 	created, err := h.runService.CreateRun(r.Context(), user.ID, run.CreateRunInput{
 		Title:                  req.Title,
 		Goal:                   req.Goal,
+		Kind:                   req.Kind,
+		SourceURL:              req.SourceURL,
 		Mode:                   req.Mode,
 		KnowledgeConnectionIDs: append([]string(nil), req.KnowledgeConnectionIDs...),
 		SkillInstallationID:    req.SkillInstallationID,

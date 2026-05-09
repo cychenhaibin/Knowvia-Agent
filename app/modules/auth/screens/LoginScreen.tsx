@@ -1,23 +1,51 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Screen } from '@/components/Screen';
 import { useTatos } from '@/components/Tatos';
 import { useI18n } from '@/i18n/useI18n';
+import { api } from '@/lib/api';
+import { signInWithWeChat } from '@/lib/wechat-auth';
+import { useAuthStore } from '@/store/auth';
 import type { AppColors } from '@/theme/colors';
 import { useAppTheme } from '@/theme/useAppTheme';
 
+const WECHAT_APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID?.trim() || 'wx070caa369d489329';
+
 export default function LoginScreen() {
+  const router = useRouter();
+  const setSession = useAuthStore((state) => state.setSession);
+  const [wechatPending, setWeChatPending] = useState(false);
   const { colors } = useAppTheme();
   const { t } = useI18n();
   const { showTatos, tatosNode } = useTatos();
 
-  const handleWeChatSignIn = () => {
-    showTatos({
-      title: '微信登录',
-      body: '当前页面已切换为仅保留微信登录入口，微信鉴权尚未接入。',
-    });
+  const handleWeChatSignIn = async () => {
+    try {
+      setWeChatPending(true);
+      const code = await signInWithWeChat(WECHAT_APP_ID);
+      const payload = await api.loginWithWeChat(code);
+      await setSession(payload);
+      router.replace('/(tabs)/runs');
+    } catch (error) {
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : '';
+      if (code === 'WECHAT_SIGN_IN_CANCELLED') {
+        return;
+      }
+
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : '微信登录失败';
+      showTatos({ title: '微信登录', body: message });
+    } finally {
+      setWeChatPending(false);
+    }
   };
 
   return (
@@ -51,10 +79,13 @@ export default function LoginScreen() {
 
             <View className="gap-4 px-4">
               <LoginOption
-                label="微信登录"
+                label={wechatPending ? '微信登录中...' : '微信登录'}
                 icon={<MaterialCommunityIcons name="wechat" size={22} color="#07C160" />}
                 colors={colors}
-                onPress={handleWeChatSignIn}
+                disabled={wechatPending}
+                onPress={() => {
+                  void handleWeChatSignIn();
+                }}
               />
 
               <Text
@@ -76,20 +107,24 @@ function LoginOption({
   label,
   icon,
   colors,
+  disabled,
   onPress,
 }: {
   label: string;
   icon: ReactNode;
   colors: AppColors;
+  disabled?: boolean;
   onPress?: () => void;
 }) {
   return (
     <Pressable
       className="flex-row items-center rounded-[12px] border px-5 py-3"
+      disabled={disabled}
       onPress={onPress}
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,
+        opacity: disabled ? 0.65 : 1,
       }}>
       <View className="w-12 items-start">{icon}</View>
       <View className="flex-1 items-center pr-6">

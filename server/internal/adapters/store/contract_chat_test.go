@@ -20,6 +20,7 @@ func testChatContract(t *testing.T, s contractStore) {
 		ID:            "chat-session-primary",
 		UserID:        userID,
 		Title:         "Primary Session",
+		Kind:          domain.ChatSessionKindChat,
 		Pinned:        true,
 		LastMessageAt: &lastMessagePrimary,
 		CreatedAt:     contractTime(70),
@@ -29,10 +30,20 @@ func testChatContract(t *testing.T, s contractStore) {
 		ID:            "chat-session-secondary",
 		UserID:        userID,
 		Title:         "Secondary Session",
+		Kind:          domain.ChatSessionKindChat,
 		Pinned:        false,
 		LastMessageAt: &sessionSecondaryLastMessage,
 		CreatedAt:     contractTime(68),
 		UpdatedAt:     contractTime(69),
+	}
+	taskSession := domain.ChatSession{
+		ID:        "task-session-code-wiki",
+		UserID:    userID,
+		Title:     "Code Wiki Task",
+		Kind:      domain.ChatSessionKindTask,
+		RunID:     "run-code-wiki",
+		CreatedAt: contractTime(67),
+		UpdatedAt: contractTime(67),
 	}
 
 	if err := s.CreateChatSession(ctx, sessionPrimary); err != nil {
@@ -40,6 +51,9 @@ func testChatContract(t *testing.T, s contractStore) {
 	}
 	if err := s.CreateChatSession(ctx, sessionSecondary); err != nil {
 		t.Fatalf("CreateChatSession secondary failed: %v", err)
+	}
+	if err := s.CreateChatSession(ctx, taskSession); err != nil {
+		t.Fatalf("CreateChatSession task failed: %v", err)
 	}
 
 	gotSession, err := s.GetChatSession(ctx, userID, sessionPrimary.ID)
@@ -64,6 +78,12 @@ func testChatContract(t *testing.T, s contractStore) {
 		t.Fatalf("ListChatSessions failed: %v", err)
 	}
 	assertDeepEqual(t, "chat sessions list order", listedSessions, []domain.ChatSession{sessionPrimary, sessionSecondary})
+
+	gotTaskSession, err := s.GetChatSession(ctx, userID, taskSession.ID)
+	if err != nil {
+		t.Fatalf("GetChatSession task failed: %v", err)
+	}
+	assertDeepEqual(t, "task chat session by id", gotTaskSession, taskSession)
 
 	userMessage := domain.ChatMessage{
 		ID:           "chat-message-user",

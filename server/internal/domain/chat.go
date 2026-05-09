@@ -9,6 +9,13 @@ const (
 	ChatRoleAssistant ChatRole = "assistant"
 )
 
+type ChatSessionKind string
+
+const (
+	ChatSessionKindChat ChatSessionKind = "chat"
+	ChatSessionKindTask ChatSessionKind = "task"
+)
+
 type ChatModelPurpose string
 
 const (
@@ -85,6 +92,8 @@ type ChatSession struct {
 	ID            string
 	UserID        string
 	Title         string
+	Kind          ChatSessionKind
+	RunID         string
 	Pinned        bool
 	LastMessageAt *time.Time
 	CreatedAt     time.Time

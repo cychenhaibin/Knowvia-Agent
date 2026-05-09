@@ -25,6 +25,7 @@ class MainApplication : Application(), ReactApplication {
             val packages = PackageList(this).packages
             packages.add(QuickQueGoogleAuthPackage())
             packages.add(QuickQueMicrosoftAuthPackage())
+            packages.add(QuickQueWeChatAuthPackage())
             return packages
           }
 

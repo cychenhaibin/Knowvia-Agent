@@ -42,7 +42,7 @@ func TestLoadEmbeddedMigrationsIncludesLatestMigration(t *testing.T) {
 	if len(migrations) == 0 {
 		t.Fatal("expected embedded migrations to be discovered")
 	}
-	if migrations[len(migrations)-1].name != "000022_chat_message_usage.sql" {
-		t.Fatalf("expected latest migration to be chat message usage, got %s", migrations[len(migrations)-1].name)
+	if migrations[len(migrations)-1].name != "000023_github_repo_analysis_tasks.sql" {
+		t.Fatalf("expected latest migration to be github repo analysis tasks, got %s", migrations[len(migrations)-1].name)
 	}
 }

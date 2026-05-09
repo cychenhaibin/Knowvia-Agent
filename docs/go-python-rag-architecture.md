@@ -603,9 +603,22 @@ Python 现在优先读取带 `PY_` 前缀的环境变量，目的是避免和 Go
 - `connection`：一条知识库连接配置，表示某个用户绑定的一份外部知识来源。
 - `skill`：一条可复用的回答行为配置，包含模式、提示词、描述等。
 - `session`：一段聊天会话，用来串联多轮消息。
+- `task session`：绑定到 Run 的任务会话，不进入普通最近会话列表。
+- `github_repo_analysis`：专用 Run 类型，用于 clone/扫描 GitHub 仓库并生成 Code Wiki artifact。
+- `code_wiki artifact`：GitHub Repo Analysis 任务生成的 Markdown 文档产物。
 - `sync job`：一次知识库同步任务，记录同步状态、时间和摘要。
 - `knowledge metadata`：前端展示知识库列表和详情所需的轻量文档信息，例如标题、来源仓库、链接和更新时间。
 - `mirrored skill`：由 Go 主存储同步给 Python 的 skill 副本，仅用于知识库问答路径。
+
+## GitHub Repo Analysis 链路补充
+
+这条链路不属于普通知识库问答，也不是旧的网页搜索 Run。它的职责边界如下：
+
+- 前端：创建 Run 后跳转到聊天页，自动把 Go 返回的 `taskPrompt` 作为第一条消息发送。
+- Go：识别 GitHub URL，创建 Run 和 task session，clone public repo，扫描文件树和关键文件，维护 timeline，保存 `code_wiki` artifact。
+- LLM：在 Go 提供的仓库上下文上生成最终 Code Wiki Markdown。
+
+普通最近会话接口只返回 `chat_sessions.kind = chat`。任务会话通过历史任务和 Run 详情访问，避免把长任务工作区混入日常聊天列表。
 
 ## 阅读建议
 

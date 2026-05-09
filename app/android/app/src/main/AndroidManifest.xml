@@ -6,6 +6,7 @@
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <queries>
+    <package android:name="com.tencent.mm"/>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
       <category android:name="android.intent.category.BROWSABLE"/>
@@ -39,6 +40,16 @@
           android:host="com.anonymous.quickqueagent"
           android:path="/dD9cj0j5Y9CYklZnfkKQ87tb5Mw="
           android:scheme="msauth"/>
+      </intent-filter>
+    </activity>
+    <activity
+      android:name=".wxapi.WXEntryActivity"
+      android:exported="true"
+      android:launchMode="singleTask">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <data android:scheme="wx070caa369d489329"/>
       </intent-filter>
     </activity>
   </application>

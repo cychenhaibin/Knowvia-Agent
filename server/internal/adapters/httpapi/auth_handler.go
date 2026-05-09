@@ -117,6 +117,35 @@ func (h *Handler) loginWithMicrosoft(w http.ResponseWriter, r *http.Request) {
 	writeSessionPayload(w, tokens)
 }
 
+func (h *Handler) loginWithWeChat(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeInvalidRequestBody(w)
+		return
+	}
+	if strings.TrimSpace(req.Code) == "" {
+		writeValidationError(w, "code is required", []string{"code"})
+		return
+	}
+	tokens, err := h.authService.LoginWithWeChat(r.Context(), req.Code)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrWeChatAuthDisabled):
+			writeError(w, http.StatusServiceUnavailable, "wechat auth is not configured")
+		case errors.Is(err, auth.ErrWeChatIdentityUnavailable):
+			writeError(w, http.StatusServiceUnavailable, "backend cannot reach WeChat identity services")
+		case errors.Is(err, auth.ErrInvalidWeChatCode):
+			writeUnauthorized(w, "invalid wechat authorization code")
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	writeSessionPayload(w, tokens)
+}
+
 func writeSessionPayload(w http.ResponseWriter, tokens auth.TokenPair) {
 	writeJSON(w, http.StatusOK, mapSession(tokens))
 }

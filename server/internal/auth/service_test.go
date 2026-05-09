@@ -28,6 +28,15 @@ func (v staticMicrosoftVerifier) VerifyIDToken(context.Context, string) (Verifie
 	return v.identity, v.err
 }
 
+type staticWeChatExchanger struct {
+	identity VerifiedWeChatIdentity
+	err      error
+}
+
+func (e staticWeChatExchanger) ExchangeCode(context.Context, string) (VerifiedWeChatIdentity, error) {
+	return e.identity, e.err
+}
+
 func testAuthConfig() config.Config {
 	return config.Config{
 		JWTSecret:  "test-secret",
@@ -67,6 +76,50 @@ func TestLoginWithGoogleCreatesUserAndIdentity(t *testing.T) {
 	user, err := mem.GetUserByAuthIdentity(context.Background(), domain.AuthProviderGoogle, "google-subject-1")
 	if err != nil {
 		t.Fatalf("lookup user by auth identity: %v", err)
+	}
+	if user.ID != tokens.User.ID {
+		t.Fatalf("expected same user ID, got %s want %s", user.ID, tokens.User.ID)
+	}
+}
+
+func TestLoginWithWeChatCreatesUserAndIdentity(t *testing.T) {
+	mem := store.NewMemoryStore()
+	service := NewServiceWithWeChatExchanger(ServiceDeps{
+		Users:      mem,
+		Identities: mem,
+		Sessions:   mem,
+		ChatModels: mem,
+	}, testAuthConfig(), staticWeChatExchanger{
+		identity: VerifiedWeChatIdentity{
+			OpenID:      "wechat-openid-1",
+			UnionID:     "wechat-unionid-1",
+			Nickname:    "海滨",
+			AvatarURL:   "https://example.com/wechat-avatar.png",
+			Country:     "CN",
+			Province:    "Guangdong",
+			City:        "Shenzhen",
+			Privilege:   []string{"developer"},
+			AccessToken: "wechat-access-token",
+		},
+	})
+
+	tokens, err := service.LoginWithWeChat(context.Background(), "wechat-code")
+	if err != nil {
+		t.Fatalf("login with wechat: %v", err)
+	}
+	if tokens.User.ID == "" || tokens.AccessToken == "" || tokens.RefreshToken == "" {
+		t.Fatalf("expected issued session, got %#v", tokens)
+	}
+	if tokens.User.DisplayName != "海滨" {
+		t.Fatalf("expected display name from wechat nickname, got %q", tokens.User.DisplayName)
+	}
+	if tokens.User.AvatarURL != "https://example.com/wechat-avatar.png" {
+		t.Fatalf("expected avatar to be populated, got %q", tokens.User.AvatarURL)
+	}
+
+	user, err := mem.GetUserByAuthIdentity(context.Background(), domain.AuthProviderWeChat, "wechat-unionid-1")
+	if err != nil {
+		t.Fatalf("lookup user by wechat auth identity: %v", err)
 	}
 	if user.ID != tokens.User.ID {
 		t.Fatalf("expected same user ID, got %s want %s", user.ID, tokens.User.ID)

@@ -30,6 +30,8 @@ type Config struct {
 	GoogleWebClientID     string
 	MicrosoftClientID     string
 	MicrosoftTenantID     string
+	WeChatAppID           string
+	WeChatAppSecret       string
 	OpenAIBaseURL         string
 	OpenAIAPIKey          string
 	OpenAIChatModel       string
@@ -82,6 +84,8 @@ func Load() Config {
 		GoogleWebClientID:     getenv("QQA_GOOGLE_WEB_CLIENT_ID", ""),
 		MicrosoftClientID:     getenv("QQA_MICROSOFT_CLIENT_ID", ""),
 		MicrosoftTenantID:     getenv("QQA_MICROSOFT_TENANT_ID", "consumers"),
+		WeChatAppID:           getenv("QQA_WECHAT_APP_ID", ""),
+		WeChatAppSecret:       os.Getenv("QQA_WECHAT_APP_SECRET"),
 		OpenAIBaseURL:         getenv("QQA_OPENAI_BASE_URL", "http://127.0.0.1:11434/v1"),
 		OpenAIAPIKey:          getenv("QQA_OPENAI_API_KEY", "ollama"),
 		OpenAIChatModel:       getenv("QQA_OPENAI_CHAT_MODEL", domain.DefaultKnowledgeChatModelName),

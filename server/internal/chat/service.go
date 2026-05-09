@@ -27,6 +27,7 @@ type Service struct {
 	knowledgeTool     tools.KnowledgeSearcher
 	llm               provider.ChatClient
 	forward           provider.ForwardChatClient
+	taskRunner        TaskConversationRunner
 }
 
 type ForwardRequest struct {
@@ -46,6 +47,28 @@ type ForwardRequest struct {
 type ChatCompletion struct {
 	Answer string
 	Usage  *domain.ChatUsage
+}
+
+type TaskConversationRequest struct {
+	UserID    string
+	RunID     string
+	SessionID string
+	Message   string
+	Runtime   domain.ChatRuntimeConfig
+}
+
+type TaskConversationResult struct {
+	Handled bool
+	Answer  string
+	Usage   *domain.ChatUsage
+}
+
+type TaskConversationRunner interface {
+	RunTaskConversation(
+		ctx context.Context,
+		req TaskConversationRequest,
+		onChunk func(string) error,
+	) (TaskConversationResult, error)
 }
 
 type streamingClient interface {
@@ -78,6 +101,10 @@ func (s *Service) CanForward(
 	useKnowledge bool,
 ) bool {
 	return s.forward != nil && useKnowledge
+}
+
+func (s *Service) SetTaskConversationRunner(runner TaskConversationRunner) {
+	s.taskRunner = runner
 }
 
 func NormalizeSkill(raw string) Skill {

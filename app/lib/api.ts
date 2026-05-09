@@ -268,6 +268,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({idToken}),
     }),
+  loginWithWeChat: (code: string) =>
+    request<SessionPayload>('/auth/wechat', {
+      method: 'POST',
+      body: JSON.stringify({code}),
+    }),
   me: (token: string) => request<User>('/me', {}, token),
   listChatModels: async (token: string) =>
     normalizeChatModelGroups(await request<UserChatModelGroups>('/chat-models', {}, token)),

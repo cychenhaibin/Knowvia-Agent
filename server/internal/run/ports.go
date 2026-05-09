@@ -15,6 +15,10 @@ type RunStore interface {
 	ListRuns(ctx context.Context, userID string) ([]domain.Run, error)
 }
 
+type TaskSessionStore interface {
+	CreateChatSession(context.Context, domain.ChatSession) error
+}
+
 type RunStepStore interface {
 	UpsertRunStep(ctx context.Context, step domain.RunStep) error
 	ListRunSteps(ctx context.Context, runID string) ([]domain.RunStep, error)
@@ -36,10 +40,11 @@ type RunSkillStore interface {
 }
 
 type ServiceDeps struct {
-	Runs      RunStore
-	Steps     RunStepStore
-	Artifacts RunArtifactStore
-	Sources   RunSourceStore
-	Skills    RunSkillStore
-	Selection skillresolver.InstallationRecordStore
+	Runs         RunStore
+	Steps        RunStepStore
+	Artifacts    RunArtifactStore
+	Sources      RunSourceStore
+	Skills       RunSkillStore
+	Selection    skillresolver.InstallationRecordStore
+	TaskSessions TaskSessionStore
 }

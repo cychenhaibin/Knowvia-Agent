@@ -1,4 +1,5 @@
 export type RunMode = 'auto' | 'kb_only' | 'web_only' | 'hybrid';
+export type RunKind = 'research' | 'github_repo_analysis';
 export type RunStatus = 'queued' | 'planning' | 'running' | 'completed' | 'failed';
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type StepKind =
@@ -8,7 +9,11 @@ export type StepKind =
   | 'web_page_extract'
   | 'evidence_merge'
   | 'report_writer'
-  | 'finalize';
+  | 'finalize'
+  | 'github_repo_fetch'
+  | 'github_repo_scan'
+  | 'code_structure_analyze'
+  | 'code_wiki_writer';
 
 export interface User {
   id: string;
@@ -52,8 +57,12 @@ export interface SessionPayload {
 export interface Run {
   id: string;
   userId: string;
+  kind: RunKind;
   title: string;
   goal: string;
+  sourceUrl?: string;
+  taskSessionId?: string;
+  taskPrompt?: string;
   requestedMode: RunMode;
   effectiveMode: RunMode;
   knowledgeConnectionIds?: string[];
@@ -79,7 +88,13 @@ export interface RunStep {
 export interface RunArtifact {
   id: string;
   runId: string;
-  kind: 'report_outline' | 'report_draft' | 'report_grounding' | 'report' | 'final_answer';
+  kind:
+    | 'report_outline'
+    | 'report_draft'
+    | 'report_grounding'
+    | 'report'
+    | 'final_answer'
+    | 'code_wiki';
   contentMarkdown: string;
   version: number;
   createdAt: string;
@@ -242,6 +257,8 @@ export interface ChatSession {
   id: string;
   userId: string;
   title: string;
+  kind?: 'chat' | 'task';
+  runId?: string;
   pinned: boolean;
   lastMessageAt?: string;
   createdAt: string;

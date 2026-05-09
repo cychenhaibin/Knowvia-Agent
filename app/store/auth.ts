@@ -3,6 +3,7 @@ import {create} from 'zustand';
 import {clearGoogleCredentialState} from '@/lib/google-auth';
 import {clearMicrosoftAccountState} from '@/lib/microsoft-auth';
 import {clearSession, loadSession, saveSession} from '@/lib/session';
+import {clearWeChatAuthState} from '@/lib/wechat-auth';
 import type {SessionPayload, User} from '@/types/api';
 
 type AuthState = {
@@ -51,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await clearSession();
     await clearGoogleCredentialState();
     await clearMicrosoftAccountState();
+    await clearWeChatAuthState();
     set({
       user: null,
       accessToken: null,
