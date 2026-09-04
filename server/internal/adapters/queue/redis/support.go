@@ -18,6 +18,28 @@ end
 return items
 `)
 
+var moveProcessingToRetryScript = redigo.NewScript(`
+local present = false
+for _, item in ipairs(redis.call("LRANGE", KEYS[1], 0, -1)) do
+  if item == ARGV[1] then present = true break end
+end
+if not present then return 0 end
+redis.call("ZADD", KEYS[2], ARGV[3], ARGV[2])
+redis.call("LREM", KEYS[1], 1, ARGV[1])
+return 1
+`)
+
+var moveProcessingToFailedScript = redigo.NewScript(`
+local present = false
+for _, item in ipairs(redis.call("LRANGE", KEYS[1], 0, -1)) do
+  if item == ARGV[1] then present = true break end
+end
+if not present then return 0 end
+redis.call("LPUSH", KEYS[2], ARGV[2])
+redis.call("LREM", KEYS[1], 1, ARGV[1])
+return 1
+`)
+
 func queueKeys(queueName string) (queueKey, processingKey, retryKey, failedKey, dedupPrefix string) {
 	base := strings.TrimSpace(queueName)
 	if base == "" {

@@ -77,7 +77,7 @@ func (w *Worker) ackRawTask(ctx context.Context, raw string) error {
 	return nil
 }
 
-func (w *Worker) scheduleRetry(ctx context.Context, payload taskPayload) error {
+func (w *Worker) scheduleRetry(ctx context.Context, raw string, payload taskPayload) error {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal retry payload: %w", err)
@@ -89,11 +89,12 @@ func (w *Worker) scheduleRetry(ctx context.Context, payload taskPayload) error {
 		return fmt.Errorf("marshal retry payload with retry time: %w", err)
 	}
 	score := float64(payload.RetryAfter.UnixMilli())
-	if err := w.client.ZAdd(ctx, w.retryKey, redigo.Z{
-		Score:  score,
-		Member: encoded,
-	}).Err(); err != nil {
+	moved, err := moveProcessingToRetryScript.Run(ctx, w.client, []string{w.processingKey, w.retryKey}, raw, string(encoded), score).Int()
+	if err != nil {
 		return fmt.Errorf("schedule retry task: %w", err)
+	}
+	if moved != 1 {
+		return errors.New("schedule retry task: processing task not found")
 	}
 	if w.logger != nil {
 		w.logger.Printf("Redis worker scheduled retry for %s attempt %d after %s", payload.Type, payload.Attempts, delay)
@@ -118,13 +119,17 @@ func (w *Worker) backoffDelay(attempt int) time.Duration {
 	return delay
 }
 
-func (w *Worker) pushFailedTask(ctx context.Context, payload taskPayload) error {
+func (w *Worker) pushFailedTask(ctx context.Context, raw string, payload taskPayload) error {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal failed payload: %w", err)
 	}
-	if err := w.client.LPush(ctx, w.failedKey, encoded).Err(); err != nil {
+	moved, err := moveProcessingToFailedScript.Run(ctx, w.client, []string{w.processingKey, w.failedKey}, raw, string(encoded)).Int()
+	if err != nil {
 		return fmt.Errorf("push failed task: %w", err)
+	}
+	if moved != 1 {
+		return errors.New("push failed task: processing task not found")
 	}
 	if w.logger != nil {
 		w.logger.Printf("Redis worker moved %s to failed queue after %d attempts: %s", payload.Type, payload.Attempts, payload.LastError)
@@ -133,9 +138,6 @@ func (w *Worker) pushFailedTask(ctx context.Context, payload taskPayload) error 
 }
 
 func (w *Worker) failRawTask(ctx context.Context, raw string, err error) error {
-	if ackErr := w.ackRawTask(ctx, raw); ackErr != nil {
-		return ackErr
-	}
 	payload := taskPayload{
 		Type:       "invalid",
 		Attempts:   w.maxAttempts,
@@ -143,7 +145,7 @@ func (w *Worker) failRawTask(ctx context.Context, raw string, err error) error {
 		EnqueuedAt: time.Now().UTC(),
 		RetryAfter: time.Time{},
 	}
-	return w.pushFailedTask(ctx, payload)
+	return w.pushFailedTask(ctx, raw, payload)
 }
 
 func (w *Worker) releaseIdempotencyKey(ctx context.Context, payload taskPayload) error {

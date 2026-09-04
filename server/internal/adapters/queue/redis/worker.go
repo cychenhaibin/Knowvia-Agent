@@ -159,21 +159,17 @@ func (w *Worker) handleRawTask(ctx context.Context, raw string) error {
 		return w.releaseIdempotencyKey(ctx, payload)
 	}
 
-	if ackErr := w.ackRawTask(ctx, raw); ackErr != nil {
-		return ackErr
-	}
-
 	payload.Attempts++
 	payload.LastError = err.Error()
 	if payload.Attempts >= w.maxAttempts {
 		w.failed.Add(1)
-		if err := w.pushFailedTask(ctx, payload); err != nil {
+		if err := w.pushFailedTask(ctx, raw, payload); err != nil {
 			return err
 		}
 		return w.releaseIdempotencyKey(ctx, payload)
 	}
 	w.retried.Add(1)
-	return w.scheduleRetry(ctx, payload)
+	return w.scheduleRetry(ctx, raw, payload)
 }
 
 func (w *Worker) processTask(ctx context.Context, payload taskPayload) error {

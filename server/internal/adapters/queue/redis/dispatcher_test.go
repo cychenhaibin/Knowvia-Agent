@@ -321,6 +321,54 @@ func TestWorkerPromotesRetryAtomically(t *testing.T) {
 	}
 }
 
+func TestWorkerKeepsProcessingTaskWhenFailureDestinationIsUnavailable(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		maxAttempts int
+		targetKey   func(*Worker) string
+	}{
+		{name: "retry", maxAttempts: 2, targetKey: func(w *Worker) string { return w.retryKey }},
+		{name: "failed", maxAttempts: 1, targetKey: func(w *Worker) string { return w.failedKey }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mr := miniredis.RunT(t)
+			worker, err := NewWorker(
+				Options{Addr: mr.Addr(), QueueName: "atomic-failure:" + tc.name, MaxAttempts: tc.maxAttempts},
+				func(context.Context, string) error { return assertErr{} },
+				func(context.Context, string, string) error { return nil },
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = worker.Close() }()
+
+			payload := taskPayload{Type: taskTypeRun, RunID: "run-1", IdempotencyKey: runTaskKey("run-1"), EnqueuedAt: time.Now().UTC()}
+			rawBytes, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw := string(rawBytes)
+			if err := worker.client.RPush(context.Background(), worker.processingKey, raw).Err(); err != nil {
+				t.Fatal(err)
+			}
+			if err := worker.client.Set(context.Background(), tc.targetKey(worker), "wrong-type", 0).Err(); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := worker.handleRawTask(context.Background(), raw); err == nil {
+				t.Fatal("expected destination type error")
+			}
+			depth, err := worker.client.LLen(context.Background(), worker.processingKey).Result()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if depth != 1 {
+				t.Fatalf("processing task was lost after destination failure: depth=%d", depth)
+			}
+		})
+	}
+}
+
 func TestWorkerSnapshotIncludesConfiguredQueueDepths(t *testing.T) {
 	mr := miniredis.RunT(t)
 	dispatcher, err := NewDispatcher(Options{Addr: mr.Addr(), QueueName: "metrics:tasks"})
