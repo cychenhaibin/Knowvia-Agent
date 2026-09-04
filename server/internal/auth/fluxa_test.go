@@ -373,3 +373,42 @@ func TestLoginWithFluxARejectsUnknownSiteBeforeVerification(t *testing.T) {
 		t.Fatalf("verifier calls = %d, want 0", verifier.calls)
 	}
 }
+
+func TestLoginWithFluxAKeepsSameSubjectSeparateAcrossSites(t *testing.T) {
+	mem := store.NewMemoryStore()
+	verifier := &staticFluxAVerifier{identity: VerifiedFluxAIdentity{
+		Subject:  "42",
+		Username: "same-user",
+	}}
+	service := NewService(ServiceDeps{
+		Users:         mem,
+		Identities:    mem,
+		Sessions:      mem,
+		ChatModels:    mem,
+		FluxAVerifier: verifier,
+	}, testAuthConfig())
+
+	paid, err := service.LoginWithFluxA(context.Background(), FluxASitePaid, "paid-token")
+	if err != nil {
+		t.Fatalf("paid login: %v", err)
+	}
+	free, err := service.LoginWithFluxA(context.Background(), FluxASiteFree, "free-token")
+	if err != nil {
+		t.Fatalf("free login: %v", err)
+	}
+
+	if paid.User.ID == free.User.ID {
+		t.Fatalf("paid and free user IDs both equal %q", paid.User.ID)
+	}
+	paidIdentity, err := mem.GetUserByAuthIdentity(context.Background(), domain.AuthProviderFluxAPaid, "42")
+	if err != nil {
+		t.Fatalf("lookup paid identity: %v", err)
+	}
+	freeIdentity, err := mem.GetUserByAuthIdentity(context.Background(), domain.AuthProviderFluxAFree, "42")
+	if err != nil {
+		t.Fatalf("lookup free identity: %v", err)
+	}
+	if paidIdentity.ID != paid.User.ID || freeIdentity.ID != free.User.ID {
+		t.Fatalf("identity users = (%q, %q), want (%q, %q)", paidIdentity.ID, freeIdentity.ID, paid.User.ID, free.User.ID)
+	}
+}
