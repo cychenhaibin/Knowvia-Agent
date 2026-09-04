@@ -1,5 +1,6 @@
 .DS_Store
 .codex/
+.worktrees/
 
 # Environment files
 .env
