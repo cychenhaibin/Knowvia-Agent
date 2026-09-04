@@ -10,8 +10,8 @@ from unittest.mock import patch
 from qqa_llm.core.config import Settings
 from qqa_llm.inference.ollama_client import OllamaGenerationClient
 from qqa_llm.main import build_container, create_app
-from qqa_llm.inference.embeddings import build_embedding_client, describe_embedding_backend
-from qqa_llm.inference.reranker import build_rerank_client, describe_rerank_backend
+from qqa_llm.inference.embeddings import EmbeddingModel, build_embedding_client, describe_embedding_backend
+from qqa_llm.inference.reranker import RerankerModel, build_rerank_client, describe_rerank_backend
 from qqa_llm.services.model_profile_service import ModelProfileService
 from qqa_llm.storage.file_repo import FileStore
 from qqa_llm.storage.model_profile_repo import ModelProfileRepository
@@ -108,6 +108,8 @@ class BackendSelectionTest(unittest.TestCase):
         self.assertNotIn("trace_very_old_report", remaining_ids)
 
     def test_bce_backends_can_be_selected(self) -> None:
+        if EmbeddingModel is None or RerankerModel is None:
+            self.skipTest("BCEmbedding is an optional dependency")
         settings = make_settings(embedding_backend="bce", rerank_backend="bce")
         embedding_client = build_embedding_client(settings)
         rerank_client = build_rerank_client(settings, embedding_client)
