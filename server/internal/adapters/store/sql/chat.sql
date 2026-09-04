@@ -17,6 +17,11 @@ UPDATE sessions
 SET revoked_at = NOW()
 WHERE id = $1;
 
+-- name: ConsumeSession :execrows
+UPDATE sessions
+SET revoked_at = NOW()
+WHERE id = $1 AND revoked_at IS NULL AND expires_at > NOW();
+
 -- name: ListUserChatModels :many
 SELECT id, user_id, purpose, origin, name, base_url, api_key_encrypted, model_name, temperature, is_selected, created_at, updated_at
 FROM user_chat_models

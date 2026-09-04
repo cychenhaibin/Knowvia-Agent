@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,25 @@ import (
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+type synchronizedRefreshStore struct {
+	*store.MemoryStore
+	ready sync.WaitGroup
+	start chan struct{}
+}
+
+func newSynchronizedRefreshStore() *synchronizedRefreshStore {
+	value := &synchronizedRefreshStore{MemoryStore: store.NewMemoryStore(), start: make(chan struct{})}
+	value.ready.Add(2)
+	return value
+}
+
+func (s *synchronizedRefreshStore) GetSessionByRefreshToken(ctx context.Context, token string) (domain.Session, error) {
+	session, err := s.MemoryStore.GetSessionByRefreshToken(ctx, token)
+	s.ready.Done()
+	<-s.start
+	return session, err
+}
 
 func TestPasswordHashUsesAdaptiveSaltedHash(t *testing.T) {
 	first := hashPassword("correct horse battery staple")
@@ -110,6 +130,44 @@ func TestLogoutInvalidatesAccessToken(t *testing.T) {
 	}
 	if _, err := service.Authenticate(pair.AccessToken); !errors.Is(err, ErrInvalidToken) {
 		t.Fatalf("expected revoked access token rejection, got %v", err)
+	}
+}
+
+func TestConcurrentRefreshConsumesTokenOnlyOnce(t *testing.T) {
+	backend := newSynchronizedRefreshStore()
+	service := NewService(ServiceDeps{Users: backend, Sessions: backend, ChatModels: backend}, testAuthConfig())
+	if err := backend.UpsertUser(context.Background(), domain.User{ID: "user-1", Username: "alice", PasswordHash: hashPassword("pw")}); err != nil {
+		t.Fatal(err)
+	}
+	pair, err := service.Login(context.Background(), "alice", "pw")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	errs := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			_, refreshErr := service.Refresh(context.Background(), pair.RefreshToken)
+			errs <- refreshErr
+		}()
+	}
+	backend.ready.Wait()
+	close(backend.start)
+
+	successes := 0
+	invalid := 0
+	for i := 0; i < 2; i++ {
+		switch err := <-errs; {
+		case err == nil:
+			successes++
+		case errors.Is(err, ErrInvalidToken):
+			invalid++
+		default:
+			t.Fatalf("unexpected refresh error: %v", err)
+		}
+	}
+	if successes != 1 || invalid != 1 {
+		t.Fatalf("expected one successful refresh and one rejected replay, got successes=%d invalid=%d", successes, invalid)
 	}
 }
 

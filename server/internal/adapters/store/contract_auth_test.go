@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 )
@@ -75,6 +76,11 @@ func testAuthContract(t *testing.T, s contractStore) {
 		t.Fatalf("GetSessionByRefreshToken failed: %v", err)
 	}
 	assertDeepEqual(t, "session before revoke", gotSession, session)
+	gotAccessSession, err := s.GetSessionByAccessToken(ctx, session.AccessToken)
+	if err != nil {
+		t.Fatalf("GetSessionByAccessToken failed: %v", err)
+	}
+	assertDeepEqual(t, "session by access token", gotAccessSession, session)
 
 	if err := s.RevokeSession(ctx, session.ID); err != nil {
 		t.Fatalf("RevokeSession failed: %v", err)
@@ -91,4 +97,22 @@ func testAuthContract(t *testing.T, s contractStore) {
 	}
 	gotRevokedSession.RevokedAt = nil
 	assertDeepEqual(t, "session after revoke", gotRevokedSession, session)
+
+	consumable := domain.Session{
+		ID:           "session-contract-consume",
+		UserID:       user.ID,
+		AccessToken:  "access-contract-consume",
+		RefreshToken: "refresh-contract-consume",
+		ExpiresAt:    time.Now().UTC().Add(time.Hour),
+		CreatedAt:    time.Now().UTC(),
+	}
+	if err := s.CreateSession(ctx, consumable); err != nil {
+		t.Fatalf("CreateSession for consume failed: %v", err)
+	}
+	if err := s.ConsumeSession(ctx, consumable.ID); err != nil {
+		t.Fatalf("ConsumeSession failed: %v", err)
+	}
+	if err := s.ConsumeSession(ctx, consumable.ID); err == nil {
+		t.Fatal("expected second ConsumeSession call to reject replay")
+	}
 }

@@ -22,6 +22,20 @@ type CountSelectedUserChatModelsParams struct {
 	Purpose string
 }
 
+const consumeSession = `-- name: ConsumeSession :execrows
+UPDATE sessions
+SET revoked_at = NOW()
+WHERE id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+`
+
+func (q *Queries) ConsumeSession(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, consumeSession, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 func (q *Queries) CountSelectedUserChatModels(ctx context.Context, arg CountSelectedUserChatModelsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSelectedUserChatModels, arg.UserID, arg.Purpose)
 	var count int64

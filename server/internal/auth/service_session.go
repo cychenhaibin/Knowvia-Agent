@@ -32,8 +32,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (TokenPair, 
 	if err != nil {
 		return TokenPair{}, ErrInvalidToken
 	}
-	if err := s.sessionStore.RevokeSession(ctx, session.ID); err != nil {
-		return TokenPair{}, err
+	if err := s.sessionStore.ConsumeSession(ctx, session.ID); err != nil {
+		return TokenPair{}, ErrInvalidToken
 	}
 	return s.issueSession(ctx, user)
 }

@@ -20,6 +20,7 @@ type AuthIdentityStore interface {
 type SessionStore interface {
 	GetSessionByRefreshToken(context.Context, string) (domain.Session, error)
 	GetSessionByAccessToken(context.Context, string) (domain.Session, error)
+	ConsumeSession(context.Context, string) error
 	RevokeSession(context.Context, string) error
 	CreateSession(context.Context, domain.Session) error
 }

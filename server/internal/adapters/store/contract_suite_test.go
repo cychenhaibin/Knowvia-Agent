@@ -16,6 +16,8 @@ type contractStore interface {
 	GetUserByAuthIdentity(ctx context.Context, provider domain.AuthProvider, subject string) (domain.User, error)
 	CreateSession(ctx context.Context, session domain.Session) error
 	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (domain.Session, error)
+	GetSessionByAccessToken(ctx context.Context, accessToken string) (domain.Session, error)
+	ConsumeSession(ctx context.Context, sessionID string) error
 	RevokeSession(ctx context.Context, sessionID string) error
 
 	EnsureUserChatModelDefaults(ctx context.Context, userID string) error

@@ -119,3 +119,16 @@ func (s *MemoryStore) RevokeSession(_ context.Context, sessionID string) error {
 	s.sessions[sessionID] = session
 	return nil
 }
+
+func (s *MemoryStore) ConsumeSession(_ context.Context, sessionID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	session, ok := s.sessions[sessionID]
+	if !ok || session.RevokedAt != nil || session.ExpiresAt.Before(time.Now().UTC()) {
+		return ErrNotFound
+	}
+	now := time.Now().UTC()
+	session.RevokedAt = &now
+	s.sessions[sessionID] = session
+	return nil
+}

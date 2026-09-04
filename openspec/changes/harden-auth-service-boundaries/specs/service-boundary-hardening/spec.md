@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Authentication tokens have bounded and distinct lifetimes
-The service SHALL issue access and refresh tokens with distinct token-use claims, unique identifiers, configured expiration times, and matching response TTLs. Access authentication MUST reject refresh tokens and revoked sessions.
+The service SHALL issue access and refresh tokens with distinct token-use claims, unique identifiers, and configured expiration times. The existing access-token response TTL MUST match the configured access TTL. Access authentication MUST reject refresh tokens and revoked sessions, and refresh tokens MUST be consumed atomically so replay cannot create multiple sessions.
 
 #### Scenario: Login issues bounded tokens
 - **WHEN** a user logs in with valid credentials
@@ -10,6 +10,10 @@ The service SHALL issue access and refresh tokens with distinct token-use claims
 #### Scenario: Logout revokes access authentication
 - **WHEN** a user logs out with a valid refresh token and then presents the associated access token
 - **THEN** authentication fails with an invalid-token error
+
+#### Scenario: Concurrent refresh replay is rejected
+- **WHEN** two requests concurrently use the same active refresh token
+- **THEN** exactly one request creates a replacement session and the other fails with an invalid-token error
 
 ### Requirement: Production configuration fails closed
 The service SHALL reject known development JWT secrets, implicit default administrator credentials, and externally bound default listeners unless explicit development mode is enabled.
@@ -48,7 +52,7 @@ The Go Python proxy SHALL fail a stream that ends without a done event, and run 
 - **THEN** GetRunDetails returns that error and does not report a successful complete response
 
 ### Requirement: File-backed indexing and chunking preserve boundaries
-The Python file backend SHALL serialize job/scope writes atomically, and chunking SHALL never emit a chunk larger than the configured chunk size.
+The Python file backend SHALL serialize job/scope access within a process and atomically replace each persisted state file, and chunking SHALL never emit a chunk larger than the configured chunk size.
 
 #### Scenario: Concurrent job updates are preserved
 - **WHEN** two indexing workers update different jobs concurrently

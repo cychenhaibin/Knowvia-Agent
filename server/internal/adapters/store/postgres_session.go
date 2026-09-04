@@ -47,6 +47,17 @@ func (s *PostgresStore) RevokeSession(ctx context.Context, sessionID string) err
 	return nil
 }
 
+func (s *PostgresStore) ConsumeSession(ctx context.Context, sessionID string) error {
+	rowsAffected, err := s.queries.ConsumeSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func mapDBSession(session sqldb.Session) domain.Session {
 	return domain.Session{
 		ID:           session.ID,
