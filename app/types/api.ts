@@ -49,6 +49,15 @@ export interface SessionPayload {
   expiresIn: number;
 }
 
+export type FluxASite = 'paid' | 'free';
+
+export type FluxALoginResult = {
+  accessToken?: string;
+  require2FA?: boolean;
+  message?: string;
+  user?: {id: number; username: string; displayName?: string; email?: string};
+};
+
 export interface Run {
   id: string;
   userId: string;
