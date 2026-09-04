@@ -84,6 +84,7 @@ func TestDispatcherDeduplicatesQueuedTasks(t *testing.T) {
 	defer func() { _ = dispatcher.Close() }()
 
 	var runCount int32
+	releaseRun := make(chan struct{})
 	worker, err := NewWorker(
 		Options{
 			Addr:               mr.Addr(),
@@ -97,6 +98,7 @@ func TestDispatcherDeduplicatesQueuedTasks(t *testing.T) {
 				t.Fatalf("unexpected run id %s", runID)
 			}
 			atomic.AddInt32(&runCount, 1)
+			<-releaseRun
 			return nil
 		},
 		func(_ context.Context, _, _ string) error { return nil },
@@ -118,12 +120,14 @@ func TestDispatcherDeduplicatesQueuedTasks(t *testing.T) {
 	if err := dispatcher.EnqueueRun(context.Background(), "run-1"); err != nil {
 		t.Fatalf("enqueue duplicate run: %v", err)
 	}
-
-	waitForCondition(t, func() bool {
-		return atomic.LoadInt32(&runCount) == 1
-	})
+	close(releaseRun)
 
 	queueKey, _, _, _, dedupPrefix := queueKeys("dedup:tasks")
+	runDedupKey := dedupKey(dedupPrefix, runTaskKey("run-1"))
+	waitForCondition(t, func() bool {
+		return atomic.LoadInt32(&runCount) == 1 && !mr.Exists(queueKey) && !mr.Exists(runDedupKey)
+	})
+
 	if mr.Exists(queueKey) {
 		got, err := mr.List(queueKey)
 		if err != nil {
@@ -133,7 +137,7 @@ func TestDispatcherDeduplicatesQueuedTasks(t *testing.T) {
 			t.Fatalf("expected empty queue after processing, got %d item(s)", len(got))
 		}
 	}
-	if mr.Exists(dedupKey(dedupPrefix, runTaskKey("run-1"))) {
+	if mr.Exists(runDedupKey) {
 		t.Fatal("expected dedup key to be released after successful processing")
 	}
 

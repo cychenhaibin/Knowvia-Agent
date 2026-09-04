@@ -8,3 +8,4 @@
 - [x] 为 Python stream done、trace/metrics 和 Run detail 错误传播补充测试并实现。
 - [x] 为 file backend 并发/原子写与 chunk_size 补充测试并实现。
 - [x] 运行全量验证、根因消除检查和 Comet build guard。
+- [x] 修复 Redis 去重回归测试将业务回调误判为清理完成的时序竞态。
