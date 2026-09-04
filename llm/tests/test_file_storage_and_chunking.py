@@ -87,6 +87,11 @@ class ChunkBuilderBoundaryTests(unittest.TestCase):
         chunks = builder.build_chunks(self._document("12345\n67890"))
         self.assertTrue(all(len(chunk.content) <= 10 for chunk in chunks), chunks)
 
+    def test_full_size_paragraph_does_not_retain_overlap(self) -> None:
+        builder = ChunkBuilder(SimpleNamespace(chunk_size=10, chunk_overlap=2), DocumentNormalizer())
+        chunks = builder.build_chunks(self._document("abc\n1234567890"))
+        self.assertTrue(all(len(chunk.content) <= 10 for chunk in chunks), chunks)
+
 
 if __name__ == "__main__":
     unittest.main()

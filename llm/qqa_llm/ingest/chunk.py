@@ -85,6 +85,8 @@ class ChunkBuilder:
 
     def _tail(self, content: str, size: int) -> str:
         content = (content or "").strip()
+        if size <= 0:
+            return ""
         if len(content) <= size:
             return content
         return content[-size:]
