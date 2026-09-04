@@ -17,7 +17,7 @@ class ScopeRepository:
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def list_scope_ids(self, user_id: str) -> List[str]:
-        user_dir = self.base_dir / user_id
+        user_dir = self._safe_path(user_id)
         if not user_dir.exists():
             return []
         return sorted(path.name for path in user_dir.iterdir() if path.is_dir())
@@ -75,4 +75,27 @@ class ScopeRepository:
         }
 
     def scope_dir(self, user_id: str, scope_id: str) -> Path:
-        return self.base_dir / user_id / scope_id
+        return self._safe_path(user_id, scope_id)
+
+    def _safe_path(self, *identifiers: str) -> Path:
+        for identifier in identifiers:
+            value = str(identifier).strip()
+            if (
+                not value
+                or value in {".", ".."}
+                or Path(value).is_absolute()
+                or Path(value).name != value
+                or "/" in value
+                or "\\" in value
+            ):
+                raise ValueError("scope identifiers must be single path components")
+
+        base = self.base_dir.resolve()
+        candidate = base.joinpath(*identifiers).resolve()
+        try:
+            candidate.relative_to(base)
+        except ValueError as exc:
+            raise ValueError("scope path escapes the configured base directory") from exc
+        if candidate == base:
+            raise ValueError("scope path must be below the configured base directory")
+        return candidate
