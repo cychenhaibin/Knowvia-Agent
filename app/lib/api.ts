@@ -165,6 +165,14 @@ export const FLUXA_SITE_ORIGINS: Record<FluxASite, string> = {
   free: 'https://free.camila.qzz.io',
 };
 
+export function resolveFluxASiteOrigin(site: unknown): string {
+  if (site === 'paid' || site === 'free') {
+    return FLUXA_SITE_ORIGINS[site];
+  }
+
+  throw new Error('Unsupported FluxA site');
+}
+
 type UnknownRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): UnknownRecord | null {
@@ -325,7 +333,8 @@ export const api = {
       body: JSON.stringify({username, password}),
     }),
   loginWithFluxA: async (site: FluxASite, username: string, password: string) => {
-    const response = await fetch(`${FLUXA_SITE_ORIGINS[site]}/api/user/login`, {
+    const origin = resolveFluxASiteOrigin(site);
+    const response = await fetch(`${origin}/api/user/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
