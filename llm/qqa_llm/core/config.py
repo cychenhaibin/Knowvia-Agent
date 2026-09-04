@@ -73,7 +73,7 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         data_dir=Path(_env("QQA_LLM_DATA_DIR", "./data/internal")).resolve(),
-        internal_auth_token=_env("QQA_PYTHON_PROXY_TOKEN", "quickque-python-internal-dev-token"),
+        internal_auth_token=_env("QQA_PYTHON_PROXY_TOKEN", ""),
         embedding_dim=_env_int("QQA_EMBEDDING_DIM", 768),
         embedding_backend=_env("QQA_EMBEDDING_BACKEND", "bce").lower() or "bce",
         embedding_model=_env("QQA_EMBEDDING_MODEL", "text-embedding-3-small"),

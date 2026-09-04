@@ -7,6 +7,7 @@
 ## Server
 
 - `QQA_SERVER_ADDR`
+- `QQA_ENV` (`development` explicitly enables local-only defaults)
 - `QQA_STORE_BACKEND`
 - `QQA_JWT_SECRET`
 - `QQA_ACCESS_TTL_MINUTES`
@@ -24,7 +25,12 @@
 - `QQA_DEV_USERS`
 
 `QQA_DEV_USERS` uses a comma-separated `username:password[:displayName]`
-format and is only meant for local development.
+format and is only accepted when `QQA_ENV=development`.
+
+Production startup requires an explicit non-development `QQA_JWT_SECRET`.
+The API and Python launchers bind to loopback by default; set
+`QQA_SERVER_ADDR` / `QQA_LLM_HOST` explicitly when an external listener is
+required. Python autoreload is opt-in with `QQA_LLM_RELOAD=true`.
 
 `QQA_STORE_BACKEND` accepts `postgres` or `memory`. When the variable is
 omitted, the server automatically uses `postgres` if `QQA_POSTGRES_DSN` is

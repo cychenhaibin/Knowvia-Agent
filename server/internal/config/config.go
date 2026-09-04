@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -10,6 +12,7 @@ import (
 )
 
 type Config struct {
+	Environment           string
 	ServerAddr            string
 	StoreBackend          string
 	JWTSecret             string
@@ -51,6 +54,16 @@ type DevUser struct {
 }
 
 func Load() Config {
+	environment := strings.ToLower(strings.TrimSpace(getenv("QQA_ENV", "production")))
+	development := environment == "development"
+	jwtDefault := ""
+	proxyTokenDefault := ""
+	devUsersDefault := ""
+	if development {
+		jwtDefault = "quickque-agent-dev-secret"
+		proxyTokenDefault = "quickque-python-internal-dev-token"
+		devUsersDefault = "admin:admin123"
+	}
 	postgresDSN := getenv("QQA_POSTGRES_DSN", "")
 	storeBackend := strings.ToLower(strings.TrimSpace(os.Getenv("QQA_STORE_BACKEND")))
 	if storeBackend == "" {
@@ -62,9 +75,10 @@ func Load() Config {
 	}
 
 	return Config{
-		ServerAddr:            getenv("QQA_SERVER_ADDR", "0.0.0.0:8088"),
+		Environment:           environment,
+		ServerAddr:            getenv("QQA_SERVER_ADDR", "127.0.0.1:8088"),
 		StoreBackend:          storeBackend,
-		JWTSecret:             getenv("QQA_JWT_SECRET", "quickque-agent-dev-secret"),
+		JWTSecret:             getenv("QQA_JWT_SECRET", jwtDefault),
 		AccessTTL:             time.Duration(getenvInt("QQA_ACCESS_TTL_MINUTES", 30)) * time.Minute,
 		RefreshTTL:            time.Duration(getenvInt("QQA_REFRESH_TTL_HOURS", 24*7)) * time.Hour,
 		QueueMode:             getenv("QQA_QUEUE_MODE", "inline"),
@@ -88,13 +102,35 @@ func Load() Config {
 		OpenAIEmbedModel:      getenv("QQA_OPENAI_EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-4B"),
 		RerankModel:           getenv("QQA_RERANK_MODEL", "Qwen/Qwen3-Reranker-4B"),
 		PythonProxyBaseURL:    strings.TrimRight(getenv("QQA_PYTHON_PROXY_BASE_URL", ""), "/"),
-		PythonProxyToken:      getenv("QQA_PYTHON_PROXY_TOKEN", "quickque-python-internal-dev-token"),
+		PythonProxyToken:      getenv("QQA_PYTHON_PROXY_TOKEN", proxyTokenDefault),
 		PythonProxyUsername:   getenv("QQA_PYTHON_PROXY_USERNAME", ""),
 		PythonProxyPassword:   os.Getenv("QQA_PYTHON_PROXY_PASSWORD"),
 		PythonProxyDeviceInfo: getenv("QQA_PYTHON_PROXY_DEVICE_INFO", "quickque-agent-go-proxy"),
-		DevUsers:              parseDevUsers(getenv("QQA_DEV_USERS", "admin:admin123")),
+		DevUsers:              parseDevUsers(getenv("QQA_DEV_USERS", devUsersDefault)),
 		KnowledgeChunkSize:    getenvInt("QQA_KNOWLEDGE_CHUNK_SIZE", 900),
 	}
+}
+
+func (c Config) Validate() error {
+	if strings.TrimSpace(c.JWTSecret) == "" {
+		return errors.New("QQA_JWT_SECRET is required")
+	}
+	if c.Environment != "development" {
+		switch strings.TrimSpace(c.JWTSecret) {
+		case "quickque-agent-dev-secret", "change-me":
+			return errors.New("QQA_JWT_SECRET must not use a known development value")
+		}
+		if len(c.DevUsers) > 0 {
+			return errors.New("QQA_DEV_USERS requires QQA_ENV=development")
+		}
+	}
+	if strings.TrimSpace(c.PythonProxyBaseURL) != "" && strings.TrimSpace(c.PythonProxyToken) == "" {
+		return errors.New("QQA_PYTHON_PROXY_TOKEN is required when QQA_PYTHON_PROXY_BASE_URL is set")
+	}
+	if c.AccessTTL <= 0 || c.RefreshTTL <= 0 || c.AccessTTL >= c.RefreshTTL {
+		return fmt.Errorf("invalid token TTLs: access=%s refresh=%s", c.AccessTTL, c.RefreshTTL)
+	}
+	return nil
 }
 
 func getenv(key, fallback string) string {

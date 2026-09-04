@@ -21,6 +21,9 @@ func main() {
 	_ = godotenv.Load()
 
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
 	if strings.ToLower(strings.TrimSpace(cfg.QueueMode)) != taskqueue.ModeRedis {
 		log.Fatalf("Knowvia worker requires QQA_QUEUE_MODE=%s, got %q", taskqueue.ModeRedis, cfg.QueueMode)
 	}
