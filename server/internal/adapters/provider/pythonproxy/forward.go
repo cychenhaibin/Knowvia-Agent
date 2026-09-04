@@ -148,10 +148,16 @@ func (c *Client) streamKnowledgeChat(
 
 		var event struct {
 			Type    string                     `json:"type"`
+			TraceID string                     `json:"traceId"`
 			Content string                     `json:"content"`
 			Error   any                        `json:"error"`
 			Sources []provider.ForwardedSource `json:"sources"`
 			Usage   *provider.ForwardedUsage   `json:"usage"`
+			Metrics struct {
+				RetrieveMS int `json:"retrieveMs"`
+				GenerateMS int `json:"generateMs"`
+				TotalMS    int `json:"totalMs"`
+			} `json:"metrics"`
 		}
 		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 		if err := json.Unmarshal([]byte(data), &event); err != nil {
@@ -189,9 +195,15 @@ func (c *Client) streamKnowledgeChat(
 				sources = append([]provider.ForwardedSource(nil), event.Sources...)
 			}
 			return provider.ForwardedChatResult{
+				TraceID: event.TraceID,
 				Answer:  finalAnswer,
 				Sources: sources,
-				Usage:   firstForwardedUsage(event.Usage, usage),
+				Metrics: provider.ForwardedMetrics{
+					RetrieveMS: event.Metrics.RetrieveMS,
+					GenerateMS: event.Metrics.GenerateMS,
+					TotalMS:    event.Metrics.TotalMS,
+				},
+				Usage: firstForwardedUsage(event.Usage, usage),
 			}, nil
 		case "error":
 			return provider.ForwardedChatResult{}, errors.New(forwardedEventErrorMessage(event.Error))
@@ -200,11 +212,7 @@ func (c *Client) streamKnowledgeChat(
 	if err := scanner.Err(); err != nil {
 		return provider.ForwardedChatResult{}, err
 	}
-	return provider.ForwardedChatResult{
-		Answer:  strings.TrimSpace(answer.String()),
-		Sources: sources,
-		Usage:   usage,
-	}, nil
+	return provider.ForwardedChatResult{}, errors.New("python knowledge stream ended without done event")
 }
 
 func firstForwardedUsage(values ...*provider.ForwardedUsage) *provider.ForwardedUsage {

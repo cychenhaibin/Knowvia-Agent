@@ -47,9 +47,18 @@ func (s *Service) GetRunDetails(ctx context.Context, userID, runID string) (doma
 		}
 		return domain.RunDetails{}, err
 	}
-	steps, _ := s.stepStore.ListRunSteps(ctx, runID)
-	artifacts, _ := s.artifactStore.ListArtifacts(ctx, runID)
-	sources, _ := s.sourceStore.ListSources(ctx, runID)
+	steps, err := s.stepStore.ListRunSteps(ctx, runID)
+	if err != nil {
+		return domain.RunDetails{}, err
+	}
+	artifacts, err := s.artifactStore.ListArtifacts(ctx, runID)
+	if err != nil {
+		return domain.RunDetails{}, err
+	}
+	sources, err := s.sourceStore.ListSources(ctx, runID)
+	if err != nil {
+		return domain.RunDetails{}, err
+	}
 	return domain.RunDetails{
 		Run:       run,
 		Steps:     steps,

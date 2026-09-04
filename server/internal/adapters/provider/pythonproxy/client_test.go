@@ -179,6 +179,41 @@ func TestSyncKnowledgeSourceUsesSyncClient(t *testing.T) {
 	}
 }
 
+func TestStreamKnowledgeChatRejectsCleanEOFWithoutDone(t *testing.T) {
+	client := &Client{
+		baseURL:     "http://proxy.example",
+		staticToken: "token-123",
+		httpClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			body := "data: {\"type\":\"chunk\",\"content\":\"partial\"}\n\n"
+			return &http.Response{StatusCode: http.StatusOK, Status: "200 OK", Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+		})},
+	}
+
+	result, err := client.StreamKnowledgeChat(context.Background(), provider.ForwardedChatRequest{UserID: "user-1", Message: "hello"}, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "done") {
+		t.Fatalf("expected incomplete stream error, result=%#v err=%v", result, err)
+	}
+}
+
+func TestStreamKnowledgeChatPropagatesDoneTraceAndMetrics(t *testing.T) {
+	client := &Client{
+		baseURL:     "http://proxy.example",
+		staticToken: "token-123",
+		httpClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			body := "data: {\"type\":\"done\",\"traceId\":\"trace-1\",\"content\":\"answer\",\"metrics\":{\"retrieveMs\":12,\"generateMs\":34,\"totalMs\":46}}\n\n"
+			return &http.Response{StatusCode: http.StatusOK, Status: "200 OK", Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+		})},
+	}
+
+	result, err := client.StreamKnowledgeChat(context.Background(), provider.ForwardedChatRequest{UserID: "user-1", Message: "hello"}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.TraceID != "trace-1" || result.Metrics.RetrieveMS != 12 || result.Metrics.GenerateMS != 34 || result.Metrics.TotalMS != 46 {
+		t.Fatalf("trace/metrics were not propagated: %#v", result)
+	}
+}
+
 func jsonResponse(t *testing.T, status int, payload any) *http.Response {
 	t.Helper()
 	body, err := json.Marshal(payload)

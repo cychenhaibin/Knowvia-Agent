@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,58 @@ import (
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/tools"
 )
+
+type failingDetailsStore struct {
+	*store.MemoryStore
+	stepsErr     error
+	artifactsErr error
+	sourcesErr   error
+}
+
+func (s *failingDetailsStore) ListRunSteps(ctx context.Context, runID string) ([]domain.RunStep, error) {
+	if s.stepsErr != nil {
+		return nil, s.stepsErr
+	}
+	return s.MemoryStore.ListRunSteps(ctx, runID)
+}
+
+func (s *failingDetailsStore) ListArtifacts(ctx context.Context, runID string) ([]domain.RunArtifact, error) {
+	if s.artifactsErr != nil {
+		return nil, s.artifactsErr
+	}
+	return s.MemoryStore.ListArtifacts(ctx, runID)
+}
+
+func (s *failingDetailsStore) ListSources(ctx context.Context, runID string) ([]domain.RunSource, error) {
+	if s.sourcesErr != nil {
+		return nil, s.sourcesErr
+	}
+	return s.MemoryStore.ListSources(ctx, runID)
+}
+
+func TestGetRunDetailsPropagatesSubresourceErrors(t *testing.T) {
+	sentinel := errors.New("dependency unavailable")
+	for _, tc := range []struct {
+		name      string
+		configure func(*failingDetailsStore)
+	}{
+		{name: "steps", configure: func(s *failingDetailsStore) { s.stepsErr = sentinel }},
+		{name: "artifacts", configure: func(s *failingDetailsStore) { s.artifactsErr = sentinel }},
+		{name: "sources", configure: func(s *failingDetailsStore) { s.sourcesErr = sentinel }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			backend := &failingDetailsStore{MemoryStore: store.NewMemoryStore()}
+			tc.configure(backend)
+			if err := backend.CreateRun(context.Background(), domain.Run{ID: "run-1", UserID: "user-1"}); err != nil {
+				t.Fatal(err)
+			}
+			service := NewService(ServiceDeps{Runs: backend, Steps: backend, Artifacts: backend, Sources: backend, Skills: backend, Selection: backend}, nil, NewEventBroker(), NewPlanner(), nil, nil, nil, nil, nil)
+			if _, err := service.GetRunDetails(context.Background(), "user-1", "run-1"); !errors.Is(err, sentinel) {
+				t.Fatalf("expected dependency error, got %v", err)
+			}
+		})
+	}
+}
 
 func TestCreateRunResolvesDefaultSkillInstallationByDefinition(t *testing.T) {
 	mem := store.NewMemoryStore()
