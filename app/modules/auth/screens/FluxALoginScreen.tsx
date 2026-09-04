@@ -123,21 +123,28 @@ export default function FluxALoginScreen() {
             </Pressable>
           </View>
 
-          <TextField
-            label={t('login.username')}
-            value={username}
-            onChangeText={setUsername}
-            placeholder={t('login.username')}
-            editable={site !== null}
-          />
-          <TextField
-            label={t('login.password')}
-            value={password}
-            onChangeText={setPassword}
-            placeholder={t('login.password')}
-            secureTextEntry
-            editable={site !== null}
-          />
+          <View
+            className="gap-4 rounded-[18px] p-3"
+            style={{
+              backgroundColor: site === null ? colors.surfaceMuted : 'transparent',
+              opacity: site === null ? 0.58 : 1,
+            }}>
+            <TextField
+              label={t('login.username')}
+              value={username}
+              onChangeText={setUsername}
+              placeholder={t('login.username')}
+              editable={site !== null}
+            />
+            <TextField
+              label={t('login.password')}
+              value={password}
+              onChangeText={setPassword}
+              placeholder={t('login.password')}
+              secureTextEntry
+              editable={site !== null}
+            />
+          </View>
 
           <PrimaryButton
             label={mutation.isPending ? t('login.signingIn') : t('login.signIn')}
