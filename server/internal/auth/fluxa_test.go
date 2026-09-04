@@ -81,6 +81,36 @@ func TestFluxAVerifierRejectsUnknownSiteWithoutRequest(t *testing.T) {
 	}
 }
 
+func TestFluxAVerifierDoesNotFollowRedirects(t *testing.T) {
+	var redirectedCalls atomic.Int32
+	var redirectedAuthorization atomic.Value
+	redirectedAuthorization.Store("")
+	redirectedServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirectedCalls.Add(1)
+		redirectedAuthorization.Store(r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"id":42,"username":"redirected-user"}}`))
+	}))
+	t.Cleanup(redirectedServer.Close)
+
+	originServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, redirectedServer.URL+"/stolen-token", http.StatusFound)
+	}))
+	t.Cleanup(originServer.Close)
+
+	verifier := NewFluxAIdentityVerifier(originServer.URL, originServer.URL)
+	_, err := verifier.Verify(context.Background(), FluxASitePaid, "redirect-secret-token")
+	if !errors.Is(err, ErrFluxAUnavailable) {
+		t.Errorf("error = %v, want ErrFluxAUnavailable", err)
+	}
+	if got := redirectedCalls.Load(); got != 0 {
+		t.Errorf("redirect target received %d calls, want 0", got)
+	}
+	if got := redirectedAuthorization.Load().(string); got != "" {
+		t.Errorf("redirect target received Authorization %q, want empty", got)
+	}
+}
+
 func TestFluxAVerifierReturnsSafeTimeoutError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()

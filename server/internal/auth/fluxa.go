@@ -53,7 +53,12 @@ type fluxAIdentityData struct {
 }
 
 func NewFluxAIdentityVerifier(paidOrigin, freeOrigin string) FluxAIdentityVerifier {
-	return newFluxAIdentityVerifier(paidOrigin, freeOrigin, &http.Client{Timeout: 10 * time.Second})
+	return newFluxAIdentityVerifier(paidOrigin, freeOrigin, &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	})
 }
 
 func newFluxAIdentityVerifier(paidOrigin, freeOrigin string, httpClient *http.Client) *fluxAIdentityVerifier {
