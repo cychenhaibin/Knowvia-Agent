@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,8 +30,6 @@ type Service struct {
 	googleVerifier    GoogleTokenVerifier
 	microsoftVerifier MicrosoftTokenVerifier
 }
-
-var nonExpiringSessionExpiresAt = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
 
 func NewService(deps ServiceDeps, cfg config.Config) *Service {
 	return NewServiceWithVerifiers(
@@ -101,8 +100,14 @@ func (s *Service) Login(ctx context.Context, username, password string) (TokenPa
 	if err != nil {
 		return TokenPair{}, ErrInvalidCredentials
 	}
-	if user.PasswordHash != hashPassword(password) {
+	if !verifyPassword(password, user.PasswordHash) {
 		return TokenPair{}, ErrInvalidCredentials
+	}
+	if !strings.HasPrefix(user.PasswordHash, "$2") {
+		user.PasswordHash = hashPassword(password)
+		if err := s.userStore.UpsertUser(ctx, user); err != nil {
+			return TokenPair{}, err
+		}
 	}
 	return s.issueSession(ctx, user)
 }

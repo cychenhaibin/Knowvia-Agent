@@ -7,6 +7,11 @@ SELECT id, user_id, access_token, refresh_token, expires_at, revoked_at, created
 FROM sessions
 WHERE refresh_token = $1;
 
+-- name: GetSessionByAccessToken :one
+SELECT id, user_id, access_token, refresh_token, expires_at, revoked_at, created_at
+FROM sessions
+WHERE access_token = $1;
+
 -- name: RevokeSession :execrows
 UPDATE sessions
 SET revoked_at = NOW()

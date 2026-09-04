@@ -313,6 +313,27 @@ func (q *Queries) GetSessionByRefreshToken(ctx context.Context, refreshToken str
 	return i, err
 }
 
+const getSessionByAccessToken = `-- name: GetSessionByAccessToken :one
+SELECT id, user_id, access_token, refresh_token, expires_at, revoked_at, created_at
+FROM sessions
+WHERE access_token = $1
+`
+
+func (q *Queries) GetSessionByAccessToken(ctx context.Context, accessToken string) (Session, error) {
+	row := q.db.QueryRow(ctx, getSessionByAccessToken, accessToken)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AccessToken,
+		&i.RefreshToken,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getUserChatModel = `-- name: GetUserChatModel :one
 SELECT id, user_id, purpose, origin, name, base_url, api_key_encrypted, model_name, temperature, is_selected, created_at, updated_at
 FROM user_chat_models

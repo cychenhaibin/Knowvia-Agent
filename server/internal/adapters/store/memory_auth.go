@@ -83,7 +83,18 @@ func (s *MemoryStore) CreateSession(_ context.Context, session domain.Session) e
 	defer s.mu.Unlock()
 	s.sessions[session.ID] = session
 	s.sessionsByToken[session.RefreshToken] = session.ID
+	s.sessionsByAccess[session.AccessToken] = session.ID
 	return nil
+}
+
+func (s *MemoryStore) GetSessionByAccessToken(_ context.Context, accessToken string) (domain.Session, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	sessionID, ok := s.sessionsByAccess[accessToken]
+	if !ok {
+		return domain.Session{}, ErrNotFound
+	}
+	return s.sessions[sessionID], nil
 }
 
 func (s *MemoryStore) GetSessionByRefreshToken(_ context.Context, refreshToken string) (domain.Session, error) {

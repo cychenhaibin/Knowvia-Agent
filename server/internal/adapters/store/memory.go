@@ -24,6 +24,7 @@ type memoryAuthState struct {
 	authIdentityLookup map[string]string
 	sessions           map[string]domain.Session
 	sessionsByToken    map[string]string
+	sessionsByAccess   map[string]string
 }
 
 type memoryChatState struct {
@@ -72,6 +73,7 @@ func NewMemoryStore() *MemoryStore {
 			authIdentityLookup: map[string]string{},
 			sessions:           map[string]domain.Session{},
 			sessionsByToken:    map[string]string{},
+			sessionsByAccess:   map[string]string{},
 		},
 		memoryChatState: memoryChatState{
 			chatModels:     map[string]domain.UserChatModel{},

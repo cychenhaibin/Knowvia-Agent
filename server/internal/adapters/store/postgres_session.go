@@ -28,6 +28,14 @@ func (s *PostgresStore) GetSessionByRefreshToken(ctx context.Context, refreshTok
 	return mapDBSession(session), nil
 }
 
+func (s *PostgresStore) GetSessionByAccessToken(ctx context.Context, accessToken string) (domain.Session, error) {
+	session, err := s.queries.GetSessionByAccessToken(ctx, accessToken)
+	if err != nil {
+		return domain.Session{}, normalizeError(err)
+	}
+	return mapDBSession(session), nil
+}
+
 func (s *PostgresStore) RevokeSession(ctx context.Context, sessionID string) error {
 	rowsAffected, err := s.queries.RevokeSession(ctx, sessionID)
 	if err != nil {
