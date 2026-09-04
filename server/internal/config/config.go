@@ -30,6 +30,8 @@ type Config struct {
 	GoogleWebClientID     string
 	MicrosoftClientID     string
 	MicrosoftTenantID     string
+	FluxAPaidOrigin       string
+	FluxAFreeOrigin       string
 	OpenAIBaseURL         string
 	OpenAIAPIKey          string
 	OpenAIChatModel       string
@@ -82,6 +84,8 @@ func Load() Config {
 		GoogleWebClientID:     getenv("QQA_GOOGLE_WEB_CLIENT_ID", ""),
 		MicrosoftClientID:     getenv("QQA_MICROSOFT_CLIENT_ID", ""),
 		MicrosoftTenantID:     getenv("QQA_MICROSOFT_TENANT_ID", "consumers"),
+		FluxAPaidOrigin:       getenv("QQA_FLUXA_PAID_ORIGIN", "https://fluxa.camila.qzz.io"),
+		FluxAFreeOrigin:       getenv("QQA_FLUXA_FREE_ORIGIN", "https://free.camila.qzz.io"),
 		OpenAIBaseURL:         getenv("QQA_OPENAI_BASE_URL", "http://127.0.0.1:11434/v1"),
 		OpenAIAPIKey:          getenv("QQA_OPENAI_API_KEY", "ollama"),
 		OpenAIChatModel:       getenv("QQA_OPENAI_CHAT_MODEL", domain.DefaultKnowledgeChatModelName),
