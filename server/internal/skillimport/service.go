@@ -8,7 +8,11 @@ import (
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 )
 
-const defaultMaxArchiveBytes int64 = 10 << 20
+const (
+	defaultMaxArchiveBytes     int64 = 10 << 20
+	defaultMaxArchiveFiles           = 1024
+	defaultMaxCompressionRatio       = 100
+)
 
 var (
 	ErrUnsupportedRepoURL    = errors.New("unsupported github repository url")

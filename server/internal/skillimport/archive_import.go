@@ -24,6 +24,9 @@ func (s *Service) ImportUploadedArchive(fileName, mediaType, skillPath string, a
 	if err != nil {
 		return ParsedPackage{}, fmt.Errorf("%w: %v", ErrInvalidArchive, err)
 	}
+	if err := validateArchiveLimits(reader.File, s.maxArchiveBytes); err != nil {
+		return ParsedPackage{}, err
+	}
 
 	files := collectArchiveFiles(reader.File)
 	parsedFiles, fileContents, err := s.buildParsedFiles(files)
@@ -99,6 +102,28 @@ func (s *Service) ImportUploadedArchive(fileName, mediaType, skillPath string, a
 		ToolAllowlist:    append([]string(nil), manifest.ToolAllowlist...),
 		Files:            markCoreFiles(parsedFiles, relName(manifestFile), relName(instructionsFile)),
 	}, nil
+}
+
+func validateArchiveLimits(files []*zip.File, maxUncompressedBytes int64) error {
+	if len(files) > defaultMaxArchiveFiles {
+		return ErrArchiveTooLarge
+	}
+	var total uint64
+	for _, file := range files {
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		total += file.UncompressedSize64
+		if total > uint64(maxUncompressedBytes) || file.UncompressedSize64 > uint64(maxUncompressedBytes) {
+			return ErrArchiveTooLarge
+		}
+		if file.UncompressedSize64 > 0 {
+			if file.CompressedSize64 == 0 || file.UncompressedSize64/file.CompressedSize64 > defaultMaxCompressionRatio {
+				return ErrArchiveTooLarge
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Service) buildParsedFiles(files []archiveFile) ([]ParsedPackageFile, map[string][]byte, error) {
