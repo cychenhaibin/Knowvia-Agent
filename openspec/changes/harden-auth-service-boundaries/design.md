@@ -10,7 +10,7 @@ ScopeRepository 统一通过 `resolve_safe_path` 验证单一非空路径组件�
 
 ### 可靠性与完整性
 
-Redis 任务失败处理使用 Lua 原子脚本完成 processing→retry/failed 的转移。流式代理跟踪 done 并映射 trace/metrics；Run detail 对 steps/artifacts/sources 返回首个读取错误；chunk builder 将超长段落拆分为不超过配置上限的片段。file backend 的 job JSON 采用锁内 read-modify-write + 临时文件原子替换，scope 快照采用同目录临时版本后替换。
+Redis 任务失败处理使用 Lua 原子脚本完成 processing→retry/failed 的转移。流式代理跟踪 done 并映射 trace/metrics；Run detail 对 steps/artifacts/sources 返回首个读取错误；chunk builder 将超长段落拆分为不超过配置上限的片段。file backend 的 job JSON 采用锁内 read-modify-write + 临时文件原子替换，scope 读写以同一仓储锁串行化且各文件使用原子替换。
 
 ### 验证策略
 

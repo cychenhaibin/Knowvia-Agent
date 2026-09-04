@@ -22,17 +22,31 @@ class ChunkBuilder:
 
         chunks: List[KnowledgeChunk] = []
         current_parts: List[str] = []
-        current_len = 0
+        chunk_size = max(int(self.settings.chunk_size), 1)
+        overlap = min(max(int(self.settings.chunk_overlap), 0), chunk_size - 1)
 
         for paragraph in paragraphs:
-            if current_parts and current_len + len(paragraph) > self.settings.chunk_size:
+            if len(paragraph) > chunk_size:
+                if current_parts:
+                    chunks.append(self._make_chunk(document, len(chunks), "\n".join(current_parts)))
+                    current_parts = []
+                start = 0
+                while start < len(paragraph):
+                    end = min(start + chunk_size, len(paragraph))
+                    chunks.append(self._make_chunk(document, len(chunks), paragraph[start:end]))
+                    if end == len(paragraph):
+                        break
+                    start = end - overlap
+                continue
+
+            candidate = "\n".join(current_parts + [paragraph])
+            if current_parts and len(candidate) > chunk_size:
                 chunks.append(self._make_chunk(document, len(chunks), "\n".join(current_parts)))
-                overlap_text = self._tail("\n".join(current_parts), self.settings.chunk_overlap)
+                available_overlap = max(0, chunk_size - len(paragraph) - 1)
+                overlap_text = self._tail("\n".join(current_parts), min(overlap, available_overlap))
                 current_parts = [overlap_text] if overlap_text else []
-                current_len = len(overlap_text)
 
             current_parts.append(paragraph)
-            current_len += len(paragraph)
 
         if current_parts:
             chunks.append(self._make_chunk(document, len(chunks), "\n".join(current_parts)))
