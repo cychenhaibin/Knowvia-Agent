@@ -15,6 +15,37 @@ import (
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 )
 
+type fluxATestTransport struct{ base http.RoundTripper }
+
+func (t fluxATestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	clone := req.Clone(req.Context())
+	urlCopy := *req.URL
+	urlCopy.Scheme = "http"
+	clone.URL = &urlCopy
+	return t.base.RoundTrip(clone)
+}
+
+func newTestFluxAIdentityVerifier(paidOrigin, freeOrigin string, base *http.Client) *fluxAIdentityVerifier {
+	client := &http.Client{}
+	if base != nil {
+		copy := *base
+		client = &copy
+	}
+	transport := client.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	client.Transport = fluxATestTransport{base: transport}
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return newFluxAIdentityVerifier(
+		strings.Replace(paidOrigin, "http://", "https://", 1),
+		strings.Replace(freeOrigin, "http://", "https://", 1),
+		client,
+	)
+}
+
 func TestFluxAVerifierRequestsSelectedSiteIdentity(t *testing.T) {
 	var paidCalls atomic.Int32
 	paidServer := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
@@ -43,7 +74,7 @@ func TestFluxAVerifierRequestsSelectedSiteIdentity(t *testing.T) {
 	}))
 	t.Cleanup(freeServer.Close)
 
-	verifier := NewFluxAIdentityVerifier(paidServer.URL, freeServer.URL)
+	verifier := newTestFluxAIdentityVerifier(paidServer.URL, freeServer.URL, freeServer.Client())
 	identity, err := verifier.Verify(context.Background(), FluxASiteFree, "  upstream-token  ")
 	if err != nil {
 		t.Fatalf("verify: %v", err)
@@ -64,6 +95,54 @@ func TestFluxAVerifierRequestsSelectedSiteIdentity(t *testing.T) {
 	}
 }
 
+func TestNewFluxAVerifierRejectsNonHTTPSOrNonOriginConfiguration(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		calls.Add(1)
+	}))
+	t.Cleanup(server.Close)
+	host := strings.TrimPrefix(server.URL, "http://")
+	tests := []struct {
+		name       string
+		paidOrigin string
+		freeOrigin string
+		site       FluxASite
+	}{
+		{name: "http scheme", paidOrigin: server.URL, freeOrigin: "https://free.example", site: FluxASitePaid},
+		{name: "path", paidOrigin: "https://" + host + "/api", freeOrigin: "https://free.example", site: FluxASitePaid},
+		{name: "userinfo", paidOrigin: "https://user:pass@" + host, freeOrigin: "https://free.example", site: FluxASitePaid},
+		{name: "query", paidOrigin: "https://" + host + "?token=secret", freeOrigin: "https://free.example", site: FluxASitePaid},
+		{name: "fragment", paidOrigin: "https://" + host + "#section", freeOrigin: "https://free.example", site: FluxASitePaid},
+		{name: "invalid free origin", paidOrigin: "https://paid.example", freeOrigin: "https://" + host + "/base", site: FluxASiteFree},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			verifier := NewFluxAIdentityVerifier(tt.paidOrigin, tt.freeOrigin)
+			_, err := verifier.Verify(context.Background(), tt.site, "upstream-token")
+			if !errors.Is(err, ErrFluxAUnavailable) {
+				t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
+			}
+			if got := calls.Load(); got != 0 {
+				t.Fatalf("unsafe origin received %d requests, want 0", got)
+			}
+		})
+	}
+}
+
+func TestNewFluxAVerifierNormalizesValidatedOrigin(t *testing.T) {
+	verifier, ok := NewFluxAIdentityVerifier("  HTTPS://Paid.Example:443/ ", "https://free.example/").(*fluxAIdentityVerifier)
+	if !ok {
+		t.Fatalf("verifier has type %T, want *fluxAIdentityVerifier", verifier)
+	}
+	if verifier.paidOrigin != "https://Paid.Example:443" {
+		t.Fatalf("paid origin = %q, want normalized origin", verifier.paidOrigin)
+	}
+	if verifier.freeOrigin != "https://free.example" {
+		t.Fatalf("free origin = %q, want normalized origin", verifier.freeOrigin)
+	}
+}
+
 func TestFluxAVerifierRejectsUnknownSiteWithoutRequest(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
@@ -71,7 +150,7 @@ func TestFluxAVerifierRejectsUnknownSiteWithoutRequest(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	verifier := NewFluxAIdentityVerifier(server.URL, server.URL)
+	verifier := newTestFluxAIdentityVerifier(server.URL, server.URL, server.Client())
 	_, err := verifier.Verify(context.Background(), FluxASite("https://attacker.example"), "upstream-token")
 	if !errors.Is(err, ErrFluxAUnsupportedSite) {
 		t.Fatalf("error = %v, want ErrFluxAUnsupportedSite", err)
@@ -98,7 +177,7 @@ func TestFluxAVerifierDoesNotFollowRedirects(t *testing.T) {
 	}))
 	t.Cleanup(originServer.Close)
 
-	verifier := NewFluxAIdentityVerifier(originServer.URL, originServer.URL)
+	verifier := newTestFluxAIdentityVerifier(originServer.URL, originServer.URL, originServer.Client())
 	_, err := verifier.Verify(context.Background(), FluxASitePaid, "redirect-secret-token")
 	if !errors.Is(err, ErrFluxAUnavailable) {
 		t.Errorf("error = %v, want ErrFluxAUnavailable", err)
@@ -117,7 +196,9 @@ func TestFluxAVerifierReturnsSafeTimeoutError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	verifier := newFluxAIdentityVerifier(server.URL, server.URL, &http.Client{Timeout: 25 * time.Millisecond})
+	client := server.Client()
+	client.Timeout = 25 * time.Millisecond
+	verifier := newTestFluxAIdentityVerifier(server.URL, server.URL, client)
 	const accessToken = "timeout-secret-token"
 	_, err := verifier.Verify(context.Background(), FluxASitePaid, accessToken)
 	if !errors.Is(err, ErrFluxAUnavailable) {
@@ -148,7 +229,7 @@ func TestFluxAVerifierRejectsMalformedIdentityPayloads(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 
-			verifier := NewFluxAIdentityVerifier(server.URL, server.URL)
+			verifier := newTestFluxAIdentityVerifier(server.URL, server.URL, server.Client())
 			_, err := verifier.Verify(context.Background(), FluxASitePaid, "upstream-token")
 			if !errors.Is(err, ErrFluxAInvalidToken) {
 				t.Fatalf("error = %v, want ErrFluxAInvalidToken", err)
@@ -164,7 +245,7 @@ func TestFluxAVerifierRejectsTrailingJSON(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	verifier := NewFluxAIdentityVerifier(server.URL, server.URL)
+	verifier := newTestFluxAIdentityVerifier(server.URL, server.URL, server.Client())
 	_, err := verifier.Verify(context.Background(), FluxASitePaid, "upstream-token")
 	if !errors.Is(err, ErrFluxAUnavailable) {
 		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
@@ -178,7 +259,7 @@ func TestFluxAVerifierDoesNotExposeResponseBody(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	verifier := NewFluxAIdentityVerifier(server.URL, server.URL)
+	verifier := newTestFluxAIdentityVerifier(server.URL, server.URL, server.Client())
 	_, err := verifier.Verify(context.Background(), FluxASitePaid, "upstream-token")
 	if !errors.Is(err, ErrFluxAUnavailable) {
 		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)

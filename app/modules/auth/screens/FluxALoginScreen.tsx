@@ -12,30 +12,21 @@ import {api} from '@/lib/api';
 import {useAuthStore} from '@/store/auth';
 import {useAppTheme} from '@/theme/useAppTheme';
 import type {FluxASite} from '@/types/api';
+import {
+  FluxA2FARequiredError,
+  canSubmit,
+  credentialsAreEditable,
+  loginThroughFluxA,
+  nextPasswordAfterSiteChange,
+} from '@/modules/auth/fluxaFlow';
 
 const fluxaSites: FluxASite[] = ['paid', 'free'];
-
-class FluxA2FARequiredError extends Error {}
 
 function isFluxASite(value: unknown): value is FluxASite {
   return value === 'paid' || value === 'free';
 }
 
-export function canSubmit(
-  site: FluxASite | null,
-  username: string,
-  password: string,
-  pending: boolean,
-): boolean {
-  return Boolean(site && username.trim() && password.trim() && !pending);
-}
-
-export function nextPasswordAfterSiteChange(
-  previousSite: FluxASite | null,
-  nextSite: FluxASite | null,
-): string | null {
-  return previousSite === nextSite ? null : '';
-}
+export {canSubmit, nextPasswordAfterSiteChange};
 
 export default function FluxALoginScreen() {
   const router = useRouter();
@@ -59,23 +50,22 @@ export default function FluxALoginScreen() {
         throw new Error('FluxA site is required');
       }
 
-      const login = await api.loginWithFluxA(site, username.trim(), password);
-      if (login.require2FA) {
-        throw new FluxA2FARequiredError();
-      }
-      if (!login.accessToken) {
-        throw new Error('FluxA verification failed');
-      }
-
-      return api.exchangeFluxASession(site, login.accessToken);
+      return loginThroughFluxA(
+        {site, username, password},
+        {
+          loginWithFluxA: api.loginWithFluxA,
+          exchangeFluxASession: api.exchangeFluxASession,
+          persistSession: (payload) => useAuthStore.getState().setSession(payload),
+        },
+      );
     },
-    onSuccess: async (payload) => {
-      await useAuthStore.getState().setSession(payload);
+    onSuccess: () => {
       router.replace('/(tabs)/runs');
     },
   });
 
   const selectSite = (nextSite: FluxASite) => {
+    mutation.reset();
     setPassword((currentPassword) =>
       nextPasswordAfterSiteChange(site, nextSite) ?? currentPassword,
     );
@@ -132,17 +122,23 @@ export default function FluxALoginScreen() {
             <TextField
               label={t('login.username')}
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(value) => {
+                mutation.reset();
+                setUsername(value);
+              }}
               placeholder={t('login.username')}
-              editable={site !== null}
+              editable={credentialsAreEditable(site)}
             />
             <TextField
               label={t('login.password')}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => {
+                mutation.reset();
+                setPassword(value);
+              }}
               placeholder={t('login.password')}
               secureTextEntry
-              editable={site !== null}
+              editable={credentialsAreEditable(site)}
             />
           </View>
 

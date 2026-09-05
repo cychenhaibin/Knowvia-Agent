@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/config"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/persistence"
 )
@@ -62,11 +63,21 @@ func NewFluxAIdentityVerifier(paidOrigin, freeOrigin string) FluxAIdentityVerifi
 }
 
 func newFluxAIdentityVerifier(paidOrigin, freeOrigin string, httpClient *http.Client) *fluxAIdentityVerifier {
+	paidOrigin, _ = normalizeFluxAOrigin(paidOrigin)
+	freeOrigin, _ = normalizeFluxAOrigin(freeOrigin)
 	return &fluxAIdentityVerifier{
-		paidOrigin: strings.TrimRight(strings.TrimSpace(paidOrigin), "/"),
-		freeOrigin: strings.TrimRight(strings.TrimSpace(freeOrigin), "/"),
+		paidOrigin: paidOrigin,
+		freeOrigin: freeOrigin,
 		httpClient: httpClient,
 	}
+}
+
+// normalizeFluxAOrigin accepts only an HTTPS origin. Configuration values
+// must not include a path, credentials, query, or fragment because the
+// verifier sends the upstream access token to this destination.
+func normalizeFluxAOrigin(raw string) (string, bool) {
+	normalized := config.NormalizeFluxAOrigin(raw)
+	return normalized, normalized != ""
 }
 
 func (v *fluxAIdentityVerifier) Verify(ctx context.Context, site FluxASite, accessToken string) (VerifiedFluxAIdentity, error) {

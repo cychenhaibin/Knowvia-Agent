@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -84,8 +85,8 @@ func Load() Config {
 		GoogleWebClientID:     getenv("QQA_GOOGLE_WEB_CLIENT_ID", ""),
 		MicrosoftClientID:     getenv("QQA_MICROSOFT_CLIENT_ID", ""),
 		MicrosoftTenantID:     getenv("QQA_MICROSOFT_TENANT_ID", "consumers"),
-		FluxAPaidOrigin:       getenv("QQA_FLUXA_PAID_ORIGIN", "https://fluxa.camila.qzz.io"),
-		FluxAFreeOrigin:       getenv("QQA_FLUXA_FREE_ORIGIN", "https://free.camila.qzz.io"),
+		FluxAPaidOrigin:       NormalizeFluxAOrigin(getenv("QQA_FLUXA_PAID_ORIGIN", "https://fluxa.camila.qzz.io")),
+		FluxAFreeOrigin:       NormalizeFluxAOrigin(getenv("QQA_FLUXA_FREE_ORIGIN", "https://free.camila.qzz.io")),
 		OpenAIBaseURL:         getenv("QQA_OPENAI_BASE_URL", "http://127.0.0.1:11434/v1"),
 		OpenAIAPIKey:          getenv("QQA_OPENAI_API_KEY", "ollama"),
 		OpenAIChatModel:       getenv("QQA_OPENAI_CHAT_MODEL", domain.DefaultKnowledgeChatModelName),
@@ -99,6 +100,24 @@ func Load() Config {
 		DevUsers:              parseDevUsers(getenv("QQA_DEV_USERS", "admin:admin123")),
 		KnowledgeChunkSize:    getenvInt("QQA_KNOWLEDGE_CHUNK_SIZE", 900),
 	}
+}
+
+// NormalizeFluxAOrigin accepts only an HTTPS origin. Invalid values return an
+// empty string so downstream authentication fails closed without making an
+// outbound request to an attacker-controlled URL.
+func NormalizeFluxAOrigin(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	origin, err := url.Parse(value)
+	if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.ForceQuery || origin.Fragment != "" || strings.Contains(value, "#") || origin.Opaque != "" {
+		return ""
+	}
+	if origin.Path != "" && origin.Path != "/" {
+		return ""
+	}
+	return "https://" + origin.Host
 }
 
 func getenv(key, fallback string) string {

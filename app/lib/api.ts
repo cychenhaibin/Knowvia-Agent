@@ -3,6 +3,7 @@ import {Platform} from 'react-native';
 import EventSource from 'react-native-sse';
 
 import {useAuthStore} from '@/store/auth';
+import {FLUXA_SITE_ORIGINS, resolveFluxASiteOrigin} from '@/modules/auth/fluxaFlow';
 import type {
   ChatSkill,
   ChatSession,
@@ -160,18 +161,7 @@ function getRequestBaseUrls(): string[] {
 
 const API_BASE_URL_CANDIDATES = getRequestBaseUrls();
 
-export const FLUXA_SITE_ORIGINS: Record<FluxASite, string> = {
-  paid: 'https://fluxa.camila.qzz.io',
-  free: 'https://free.camila.qzz.io',
-};
-
-export function resolveFluxASiteOrigin(site: unknown): string {
-  if (site === 'paid' || site === 'free') {
-    return FLUXA_SITE_ORIGINS[site];
-  }
-
-  throw new Error('Unsupported FluxA site');
-}
+export {FLUXA_SITE_ORIGINS, resolveFluxASiteOrigin};
 
 type UnknownRecord = Record<string, unknown>;
 

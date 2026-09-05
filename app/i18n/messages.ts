@@ -115,7 +115,7 @@ export const enMessages = {
   'login.fluxaChooseSiteHint': 'Choose a FluxA site to continue.',
   'login.fluxaSiteUnavailable': 'Choose a FluxA site before signing in.',
   'login.fluxaVerificationFailure': 'We could not verify your FluxA login. Please try again.',
-  'login.fluxa2FARequired': 'This FluxA account requires two-factor authentication.',
+  'login.fluxa2FARequired': 'This FluxA account requires two-factor authentication. Complete sign-in on the selected FluxA site, then try again.',
   'login.termsNotice':
     'By continuing, you agree to our Terms of Service and acknowledge the Privacy Policy.',
 
