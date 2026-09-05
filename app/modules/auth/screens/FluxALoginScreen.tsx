@@ -114,11 +114,8 @@ export default function FluxALoginScreen() {
           </View>
 
           <View
-            className="gap-4 rounded-[18px] p-3"
-            style={{
-              backgroundColor: site === null ? colors.surfaceMuted : 'transparent',
-              opacity: site === null ? 0.58 : 1,
-            }}>
+            className="w-full gap-4"
+            style={{opacity: site === null ? 0.58 : 1}}>
             <TextField
               label={t('login.username')}
               value={username}

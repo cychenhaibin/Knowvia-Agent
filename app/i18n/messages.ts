@@ -593,7 +593,7 @@ const zhHansMessages: MessageDictionary = {
   'login.fluxaTitle': 'FluxA中转站登录',
   'login.fluxaSiteSelector': 'FluxA 站点',
   'login.fluxaSite.paid': 'FluxA 付费版',
-  'login.fluxaSite.free': 'FluxA 免费版',
+  'login.fluxaSite.free': 'FluxA 公益站',
   'login.fluxaChooseSiteHint': '请选择要继续使用的 FluxA 站点。',
   'login.fluxaSiteUnavailable': '请先选择 FluxA 站点再登录。',
   'login.fluxaVerificationFailure': '无法验证您的 FluxA 登录，请重试。',

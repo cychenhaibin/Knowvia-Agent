@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
 import {getDictionary} from '../i18n/messages';
@@ -15,6 +16,15 @@ test('Chinese FluxA labels identify the service as the transit station', () => {
   const messages = getDictionary('zh-Hans');
   assert.equal(messages['login.fluxaLogin'], 'FluxA中转站登录');
   assert.equal(messages['login.fluxaTitle'], 'FluxA中转站登录');
+});
+
+test('FluxA login uses full-width fields without a credential card and names the free site public', () => {
+  const messages = getDictionary('zh-Hans');
+  const screen = readFileSync('modules/auth/screens/FluxALoginScreen.tsx', 'utf8');
+
+  assert.equal(messages['login.fluxaSite.free'], 'FluxA 公益站');
+  assert.match(screen, /className="w-full gap-4"/);
+  assert.doesNotMatch(screen, /className="gap-4 rounded-\[18px\] p-3"/);
 });
 
 test('credentials stay gated until a FluxA site is selected', () => {
