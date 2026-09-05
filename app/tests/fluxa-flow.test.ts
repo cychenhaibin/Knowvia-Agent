@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {getDictionary} from '../i18n/messages';
 import {
   FluxA2FARequiredError,
   loginThroughFluxA,
@@ -9,6 +10,12 @@ import {
   credentialsAreEditable,
   resolveFluxASiteOrigin,
 } from '../modules/auth/fluxaFlow';
+
+test('Chinese FluxA labels identify the service as the transit station', () => {
+  const messages = getDictionary('zh-Hans');
+  assert.equal(messages['login.fluxaLogin'], 'FluxA中转站登录');
+  assert.equal(messages['login.fluxaTitle'], 'FluxA中转站登录');
+});
 
 test('credentials stay gated until a FluxA site is selected', () => {
   assert.equal(credentialsAreEditable(null), false);

@@ -20,10 +20,15 @@
 **Files:**
 - Modify: `app/i18n/messages.ts:592-593`
 - Modify: `app/tests/fluxa-flow.test.ts`
+- Modify: `app/tsconfig.test.json`
 
 **Interfaces:**
 - Consumes: `getDictionary('zh-Hans')` 中的 `login.fluxaLogin` 与 `login.fluxaTitle`。
 - Produces: 两个 UI 翻译键均返回 `FluxA中转站登录`。
+
+- [ ] **Step 0: 使测试编译真实翻译模块**
+
+在 `app/tsconfig.test.json` 的 `compilerOptions` 中添加 `baseUrl` 为 `.` 与 `@/*` 到 `./*` 的 `paths` 映射；在 `include` 中添加 `i18n/messages.ts` 与 `i18n/languages.ts`。这使测试可编译 `getDictionary` 依赖的类型导入，而不改变应用运行时配置。
 
 - [ ] **Step 1: 写入失败测试**
 

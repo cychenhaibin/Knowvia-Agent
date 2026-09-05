@@ -6,6 +6,10 @@
     "noEmit": false,
     "outDir": ".test-dist",
     "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2020",
@@ -13,6 +17,8 @@
   },
   "include": [
     "modules/auth/fluxaFlow.ts",
+    "i18n/messages.ts",
+    "i18n/languages.ts",
     "tests/**/*.test.ts"
   ]
 }
