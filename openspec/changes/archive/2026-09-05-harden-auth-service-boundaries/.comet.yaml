@@ -16,11 +16,11 @@ plan: null
 verify_result: pass
 verify_failures: 0
 verification_report: docs/superpowers/reports/2026-09-05-harden-auth-service-boundaries-verify.md
-branch_status: pending
+branch_status: handled
 created_at: 2026-09-04
 verified_at: 2026-09-04
-archive_confirmation: pending
-archived: false
+archive_confirmation: confirmed
+archived: true
 bound_branch: hotfix/20260905/harden-auth-service-boundaries
 direct_override: null
 handoff_context: null
