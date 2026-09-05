@@ -28,6 +28,7 @@ type Service struct {
 	cfg               config.Config
 	googleVerifier    GoogleTokenVerifier
 	microsoftVerifier MicrosoftTokenVerifier
+	fluxAVerifier     FluxAIdentityVerifier
 }
 
 var nonExpiringSessionExpiresAt = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
@@ -38,6 +39,7 @@ func NewService(deps ServiceDeps, cfg config.Config) *Service {
 		cfg,
 		NewGoogleTokenVerifier(cfg.GoogleWebClientID),
 		NewMicrosoftTokenVerifier(cfg.MicrosoftClientID, cfg.MicrosoftTenantID),
+		resolveFluxAVerifier(deps, cfg),
 	)
 }
 
@@ -47,6 +49,7 @@ func NewServiceWithGoogleVerifier(deps ServiceDeps, cfg config.Config, verifier 
 		cfg,
 		verifier,
 		NewMicrosoftTokenVerifier(cfg.MicrosoftClientID, cfg.MicrosoftTenantID),
+		resolveFluxAVerifier(deps, cfg),
 	)
 }
 
@@ -56,6 +59,7 @@ func NewServiceWithMicrosoftVerifier(deps ServiceDeps, cfg config.Config, verifi
 		cfg,
 		NewGoogleTokenVerifier(cfg.GoogleWebClientID),
 		verifier,
+		resolveFluxAVerifier(deps, cfg),
 	)
 }
 
@@ -64,6 +68,7 @@ func NewServiceWithVerifiers(
 	cfg config.Config,
 	googleVerifier GoogleTokenVerifier,
 	microsoftVerifier MicrosoftTokenVerifier,
+	fluxAVerifier FluxAIdentityVerifier,
 ) *Service {
 	return &Service{
 		userStore:         deps.Users,
@@ -73,7 +78,15 @@ func NewServiceWithVerifiers(
 		cfg:               cfg,
 		googleVerifier:    googleVerifier,
 		microsoftVerifier: microsoftVerifier,
+		fluxAVerifier:     fluxAVerifier,
 	}
+}
+
+func resolveFluxAVerifier(deps ServiceDeps, cfg config.Config) FluxAIdentityVerifier {
+	if deps.FluxAVerifier != nil {
+		return deps.FluxAVerifier
+	}
+	return NewFluxAIdentityVerifier(cfg.FluxAPaidOrigin, cfg.FluxAFreeOrigin)
 }
 
 func (s *Service) SeedDevUsers(ctx context.Context) error {

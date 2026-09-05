@@ -9,6 +9,7 @@ export function TextField({
   placeholder,
   multiline = false,
   secureTextEntry = false,
+  editable = true,
 }: {
   label: string;
   value: string;
@@ -16,6 +17,7 @@ export function TextField({
   placeholder: string;
   multiline?: boolean;
   secureTextEntry?: boolean;
+  editable?: boolean;
 }) {
   const {colors} = useAppTheme();
 
@@ -36,6 +38,7 @@ export function TextField({
         placeholder={placeholder}
         placeholderTextColor={colors.textTertiary}
         secureTextEntry={secureTextEntry}
+        editable={editable}
         textAlignVertical={multiline ? 'top' : 'center'}
         value={value}
         onChangeText={onChangeText}

@@ -8,6 +8,8 @@ const (
 	AuthProviderPassword  AuthProvider = "password"
 	AuthProviderGoogle    AuthProvider = "google"
 	AuthProviderMicrosoft AuthProvider = "microsoft"
+	AuthProviderFluxAPaid AuthProvider = "fluxa_paid"
+	AuthProviderFluxAFree AuthProvider = "fluxa_free"
 	AuthProviderApple     AuthProvider = "apple"
 	AuthProviderFacebook  AuthProvider = "facebook"
 )

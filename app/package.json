@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --clear",
     "dev:android": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --clear --localhost",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/tests/*.test.js",
     "android": "EXPO_NO_TYPESCRIPT_SETUP=1 expo run:android",
     "android:reload": "adb reverse tcp:8081 tcp:8081 && adb shell am force-stop com.anonymous.quickqueagent && adb shell monkey -p com.anonymous.quickqueagent -c android.intent.category.LAUNCHER 1",
     "ios": "EXPO_NO_TYPESCRIPT_SETUP=1 expo run:ios",
@@ -32,6 +33,7 @@
     "expo-web-browser": "~14.2.0",
     "nativewind": "4.1.23",
     "react": "19.0.0",
+    "react-dom": "19.0.0",
     "react-native": "0.79.6",
     "react-native-css-interop": "0.1.22",
     "react-native-markdown-display": "^7.0.2",
@@ -40,6 +42,7 @@
     "react-native-screens": "~4.11.1",
     "react-native-sse": "^1.2.1",
     "react-native-svg": "^15.15.4",
+    "react-native-web": "^0.20.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

@@ -117,6 +117,55 @@ func (h *Handler) loginWithMicrosoft(w http.ResponseWriter, r *http.Request) {
 	writeSessionPayload(w, tokens)
 }
 
+func (h *Handler) loginWithFluxA(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Site        string `json:"site"`
+		AccessToken string `json:"accessToken"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeInvalidRequestBody(w)
+		return
+	}
+
+	req.Site = strings.TrimSpace(req.Site)
+	req.AccessToken = strings.TrimSpace(req.AccessToken)
+	if req.Site == "" {
+		writeValidationError(w, "site is required", []string{"site"})
+		return
+	}
+	if req.AccessToken == "" {
+		writeValidationError(w, "accessToken is required", []string{"accessToken"})
+		return
+	}
+
+	var site auth.FluxASite
+	switch req.Site {
+	case string(auth.FluxASitePaid):
+		site = auth.FluxASitePaid
+	case string(auth.FluxASiteFree):
+		site = auth.FluxASiteFree
+	default:
+		writeValidationError(w, "site must be paid or free", []string{"site"})
+		return
+	}
+
+	tokens, err := h.authService.LoginWithFluxA(r.Context(), site, req.AccessToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrFluxAUnsupportedSite):
+			writeValidationError(w, "site must be paid or free", []string{"site"})
+		case errors.Is(err, auth.ErrFluxAInvalidToken):
+			writeUnauthorized(w, "invalid FluxA access token")
+		case errors.Is(err, auth.ErrFluxAUnavailable):
+			writeServiceUnavailable(w, "FluxA identity service is unavailable")
+		default:
+			writeInternalError(w, "FluxA authentication failed")
+		}
+		return
+	}
+	writeSessionPayload(w, tokens)
+}
+
 func writeSessionPayload(w http.ResponseWriter, tokens auth.TokenPair) {
 	writeJSON(w, http.StatusOK, mapSession(tokens))
 }

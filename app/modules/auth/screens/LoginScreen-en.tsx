@@ -1,4 +1,3 @@
-import { useMutation } from '@tanstack/react-query';
 import { AntDesign, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Linking, Pressable, Text, View } from 'react-native';
@@ -7,7 +6,6 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 import { Screen } from '@/components/Screen';
 import { useTatos } from '@/components/Tatos';
-import { TextField } from '@/components/TextField';
 import { useI18n } from '@/i18n/useI18n';
 import { api } from '@/lib/api';
 import { signInWithGoogle } from '@/lib/google-auth';
@@ -26,23 +24,11 @@ const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim(
 
 export default function LoginScreen() {
   const router = useRouter();
-  const setSession = useAuthStore((state) => state.setSession);
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
-  const [showForm, setShowForm] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
   const [microsoftPending, setMicrosoftPending] = useState(false);
-  const { colors, themeName } = useAppTheme();
+  const { colors } = useAppTheme();
   const { t } = useI18n();
   const { showTatos, tatosNode } = useTatos();
-
-  const mutation = useMutation({
-    mutationFn: () => api.login(username, password),
-    onSuccess: async (payload) => {
-      await setSession(payload);
-      router.replace('/(tabs)/runs');
-    },
-  });
 
   const openProviderLogin = async (
     provider: keyof typeof PROVIDER_LOGIN_URLS,
@@ -83,7 +69,7 @@ export default function LoginScreen() {
       setGooglePending(true);
       const result = await signInWithGoogle(GOOGLE_WEB_CLIENT_ID);
       const payload = await api.loginWithGoogle(result.idToken);
-      await setSession(payload);
+      await useAuthStore.getState().setSession(payload);
       router.replace('/(tabs)/runs');
     } catch (error) {
       const code =
@@ -109,7 +95,7 @@ export default function LoginScreen() {
       setMicrosoftPending(true);
       const result = await signInWithMicrosoft();
       const payload = await api.loginWithMicrosoft(result.idToken);
-      await setSession(payload);
+      await useAuthStore.getState().setSession(payload);
       router.replace('/(tabs)/runs');
     } catch (error) {
       const code =
@@ -205,62 +191,16 @@ export default function LoginScreen() {
             </View>
 
             <LoginOption
-              label={t('login.emailSignIn')}
+              label={t('login.fluxaLogin')}
               icon={<AntDesign name="mail" size={20} color={colors.textPrimary} />}
               colors={colors}
-              onPress={() => setShowForm((current) => !current)}
+              onPress={() =>
+                router.push({
+                  pathname: '/(auth)/fluxa-login',
+                  params: { openSitePicker: '1' },
+                })
+              }
             />
-
-            {showForm ? (
-              <View
-                className="mt-1 gap-4 rounded-[24px] border p-4"
-                style={{
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  shadowColor: colors.shadow,
-                  shadowOpacity: themeName === 'dark' ? 0.12 : 0.05,
-                  shadowRadius: 16,
-                  shadowOffset: { width: 0, height: 8 },
-                  elevation: 3,
-                }}>
-                <TextField
-                  label={t('login.username')}
-                  value={username}
-                  onChangeText={setUsername}
-                  placeholder="admin"
-                />
-                <TextField
-                  label={t('login.password')}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="admin123"
-                  secureTextEntry
-                />
-
-                <Pressable
-                  className="items-center rounded-[18px] py-3.5"
-                  style={{
-                    backgroundColor: mutation.isPending ? colors.surfaceMuted : colors.textPrimary,
-                    opacity: mutation.isPending ? 0.72 : 1,
-                  }}
-                  disabled={mutation.isPending}
-                  onPress={() => mutation.mutate()}>
-                  <Text
-                    className="text-base font-semibold"
-                    style={{ color: colors.background }}>
-                    {mutation.isPending ? t('login.signingIn') : t('login.signIn')}
-                  </Text>
-                </Pressable>
-
-                {mutation.error ? (
-                  <Text
-                    className="text-center text-sm leading-6"
-                    style={{ color: colors.textSecondary }}>
-                    {mutation.error instanceof Error ? mutation.error.message : t('login.failure')}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
 
             <Text
               className="px-3 pt-3 text-center text-sm"

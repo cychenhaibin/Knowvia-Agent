@@ -22,9 +22,16 @@
 - `QQA_PYTHON_PROXY_BASE_URL`
 - `QQA_PYTHON_PROXY_TOKEN`
 - `QQA_DEV_USERS`
+- `QQA_FLUXA_PAID_ORIGIN` (optional; defaults to `https://fluxa.camila.qzz.io`)
+- `QQA_FLUXA_FREE_ORIGIN` (optional; defaults to `https://free.camila.qzz.io`)
 
 `QQA_DEV_USERS` uses a comma-separated `username:password[:displayName]`
 format and is only meant for local development.
+
+FluxA clients send only the site selector `paid` or `free`. The two FluxA
+origin values above are server-owned deployment overrides used for identity
+verification; they are not client-configurable URLs and do not permit arbitrary
+origins from a login request.
 
 `QQA_STORE_BACKEND` accepts `postgres` or `memory`. When the variable is
 omitted, the server automatically uses `postgres` if `QQA_POSTGRES_DSN` is

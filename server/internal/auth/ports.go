@@ -27,9 +27,14 @@ type ChatModelDefaultsStore interface {
 	EnsureUserChatModelDefaults(context.Context, string) error
 }
 
+type FluxAIdentityVerifier interface {
+	Verify(context.Context, FluxASite, string) (VerifiedFluxAIdentity, error)
+}
+
 type ServiceDeps struct {
-	Users      UserStore
-	Identities AuthIdentityStore
-	Sessions   SessionStore
-	ChatModels ChatModelDefaultsStore
+	Users         UserStore
+	Identities    AuthIdentityStore
+	Sessions      SessionStore
+	ChatModels    ChatModelDefaultsStore
+	FluxAVerifier FluxAIdentityVerifier
 }
