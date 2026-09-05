@@ -4,13 +4,13 @@
 
 **Goal:** 在简体中文界面中，将 FluxA 入口与登录页标题统一为“FluxA中转站登录”。
 
-**Architecture:** 登录入口与标题均经 `t()` 读取 `zh-CN` 消息表中的独立键。仅更新这两个翻译值，因此路由、站点选择、New API 请求和会话交换均保持不变。
+**Architecture:** 登录入口与标题均经 `t()` 读取 `getDictionary('zh-Hans')` 返回消息表中的独立键。仅更新这两个翻译值，因此路由、站点选择、New API 请求和会话交换均保持不变。
 
 **Tech Stack:** Expo/React Native、TypeScript、Node 内置测试运行器。
 
 ## Global Constraints
 
-- `login.fluxaLogin` 和 `login.fluxaTitle` 的简体中文值必须严格为 `FluxA中转站登录`。
+- `getDictionary('zh-Hans')` 的 `login.fluxaLogin` 和 `login.fluxaTitle` 必须严格为 `FluxA中转站登录`。
 - 不修改其他语言翻译或登录行为。
 
 ---
@@ -22,7 +22,7 @@
 - Modify: `app/tests/fluxa-flow.test.ts`
 
 **Interfaces:**
-- Consumes: `messages['zh-CN']` 中的 `login.fluxaLogin` 与 `login.fluxaTitle`。
+- Consumes: `getDictionary('zh-Hans')` 中的 `login.fluxaLogin` 与 `login.fluxaTitle`。
 - Produces: 两个 UI 翻译键均返回 `FluxA中转站登录`。
 
 - [ ] **Step 1: 写入失败测试**
@@ -30,11 +30,12 @@
 在 `app/tests/fluxa-flow.test.ts` 的 imports 后添加：
 
 ```ts
-import {messages} from '../i18n/messages';
+import {getDictionary} from '../i18n/messages';
 
 test('Chinese FluxA labels identify the service as the transit station', () => {
-  assert.equal(messages['zh-CN']['login.fluxaLogin'], 'FluxA中转站登录');
-  assert.equal(messages['zh-CN']['login.fluxaTitle'], 'FluxA中转站登录');
+  const messages = getDictionary('zh-Hans');
+  assert.equal(messages['login.fluxaLogin'], 'FluxA中转站登录');
+  assert.equal(messages['login.fluxaTitle'], 'FluxA中转站登录');
 });
 ```
 
