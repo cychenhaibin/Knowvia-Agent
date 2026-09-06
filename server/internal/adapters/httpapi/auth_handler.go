@@ -119,8 +119,9 @@ func (h *Handler) loginWithMicrosoft(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) loginWithFluxA(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Site        string `json:"site"`
-		AccessToken string `json:"accessToken"`
+		Site     string `json:"site"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeInvalidRequestBody(w)
@@ -128,13 +129,17 @@ func (h *Handler) loginWithFluxA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Site = strings.TrimSpace(req.Site)
-	req.AccessToken = strings.TrimSpace(req.AccessToken)
+	req.Username = strings.TrimSpace(req.Username)
 	if req.Site == "" {
 		writeValidationError(w, "site is required", []string{"site"})
 		return
 	}
-	if req.AccessToken == "" {
-		writeValidationError(w, "accessToken is required", []string{"accessToken"})
+	if req.Username == "" {
+		writeValidationError(w, "username is required", []string{"username"})
+		return
+	}
+	if strings.TrimSpace(req.Password) == "" {
+		writeValidationError(w, "password is required", []string{"password"})
 		return
 	}
 
@@ -149,13 +154,15 @@ func (h *Handler) loginWithFluxA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.authService.LoginWithFluxA(r.Context(), site, req.AccessToken)
+	tokens, err := h.authService.LoginWithFluxACredentials(r.Context(), site, req.Username, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrFluxAUnsupportedSite):
 			writeValidationError(w, "site must be paid or free", []string{"site"})
-		case errors.Is(err, auth.ErrFluxAInvalidToken):
-			writeUnauthorized(w, "invalid FluxA access token")
+		case errors.Is(err, auth.ErrFluxAInvalidCredentials):
+			writeUnauthorized(w, "invalid FluxA credentials")
+		case errors.Is(err, auth.ErrFluxA2FARequired):
+			writeUnauthorized(w, "complete two-factor authentication on the selected FluxA site")
 		case errors.Is(err, auth.ErrFluxAUnavailable):
 			writeServiceUnavailable(w, "FluxA identity service is unavailable")
 		default:

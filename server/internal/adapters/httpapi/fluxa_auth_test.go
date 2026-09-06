@@ -16,6 +16,32 @@ import (
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/config"
 )
 
+type recordingFluxACredentialAuthenticator struct {
+	mu       sync.Mutex
+	token    string
+	err      error
+	calls    int
+	site     auth.FluxASite
+	username string
+	password string
+}
+
+func (a *recordingFluxACredentialAuthenticator) Login(_ context.Context, site auth.FluxASite, username, password string) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.calls++
+	a.site = site
+	a.username = username
+	a.password = password
+	return a.token, a.err
+}
+
+func (a *recordingFluxACredentialAuthenticator) snapshot() (calls int, site auth.FluxASite, username, password string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.calls, a.site, a.username, a.password
+}
+
 type recordingFluxAVerifier struct {
 	mu       sync.Mutex
 	identity auth.VerifiedFluxAIdentity
@@ -34,16 +60,23 @@ func (v *recordingFluxAVerifier) Verify(_ context.Context, site auth.FluxASite, 
 	return v.identity, v.err
 }
 
-func TestFluxAExchangeReturnsSessionPayload(t *testing.T) {
+func (v *recordingFluxAVerifier) snapshot() (calls int, site auth.FluxASite, token string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.calls, v.site, v.token
+}
+
+func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
+	const internalToken = "internal-upstream-token"
+	authenticator := &recordingFluxACredentialAuthenticator{token: internalToken}
 	verifier := &recordingFluxAVerifier{identity: auth.VerifiedFluxAIdentity{
 		Subject:     "42",
 		Username:    "fluxa-user",
 		DisplayName: "FluxA User",
 		Email:       "user@example.com",
 	}}
-	router := newFluxATestRouter(verifier)
 
-	rec := performFluxAExchange(router, `{"site":"  paid  ","accessToken":"  upstream-secret-token  "}`)
+	rec := performFluxALogin(newFluxATestRouter(authenticator, verifier), `{"site":"  paid  ","username":"  fluxa-user  ","password":"raw-password"}`)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
@@ -58,74 +91,70 @@ func TestFluxAExchangeReturnsSessionPayload(t *testing.T) {
 	if payload.AccessToken == "" || payload.RefreshToken == "" {
 		t.Fatalf("session = %#v, want issued tokens", payload)
 	}
-	if verifier.calls != 1 || verifier.site != auth.FluxASitePaid || verifier.token != "upstream-secret-token" {
-		t.Fatalf("verifier call = (%d, %q, %q), want (1, paid, upstream-secret-token)", verifier.calls, verifier.site, verifier.token)
+	if strings.Contains(rec.Body.String(), internalToken) {
+		t.Fatal("response echoed the internal FluxA token")
 	}
-	if strings.Contains(rec.Body.String(), "upstream-secret-token") {
-		t.Fatal("response echoed the upstream access token")
+	if strings.Contains(rec.Body.String(), "raw-password") {
+		t.Fatal("response echoed the password")
+	}
+
+	if calls, site, username, password := authenticator.snapshot(); calls != 1 || site != auth.FluxASitePaid || username != "fluxa-user" || password != "raw-password" {
+		t.Fatalf("authenticator call = (%d, %q, %q, %q), want (1, paid, fluxa-user, raw-password)", calls, site, username, password)
+	}
+	if calls, site, token := verifier.snapshot(); calls != 1 || site != auth.FluxASitePaid || token != internalToken {
+		t.Fatalf("verifier call = (%d, %q, %q), want (1, paid, %q)", calls, site, token, internalToken)
 	}
 }
 
-func TestFluxAExchangeRejectsMissingFieldsWithoutVerification(t *testing.T) {
+func TestFluxALoginRejectsMissingCredentialsAndLegacyTokenBody(t *testing.T) {
 	tests := []struct {
 		name      string
 		body      string
 		wantField string
 	}{
-		{name: "missing site", body: `{"accessToken":"upstream-secret-token"}`, wantField: "site"},
-		{name: "blank site", body: `{"site":"  ","accessToken":"upstream-secret-token"}`, wantField: "site"},
-		{name: "missing access token", body: `{"site":"paid"}`, wantField: "accessToken"},
-		{name: "blank access token", body: `{"site":"paid","accessToken":"  "}`, wantField: "accessToken"},
+		{name: "missing username", body: `{"site":"paid","password":"raw-password"}`, wantField: "username"},
+		{name: "blank username", body: `{"site":"paid","username":"  ","password":"raw-password"}`, wantField: "username"},
+		{name: "missing password", body: `{"site":"paid","username":"fluxa-user"}`, wantField: "password"},
+		{name: "blank password", body: `{"site":"paid","username":"fluxa-user","password":"  "}`, wantField: "password"},
+		{name: "legacy access token", body: `{"site":"paid","accessToken":"legacy-token"}`, wantField: "username"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			verifier := &recordingFluxAVerifier{}
-			rec := performFluxAExchange(newFluxATestRouter(verifier), tt.body)
+			authenticator := &recordingFluxACredentialAuthenticator{token: "internal-upstream-token"}
+			rec := performFluxALogin(newFluxATestRouter(authenticator, &recordingFluxAVerifier{}), tt.body)
 
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
 			}
-			var payload apiErrorPayload
-			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-				t.Fatalf("decode error payload: %v", err)
+			assertFluxAError(t, rec, errorCodeValidationFailed, tt.wantField, "")
+			if calls, _, _, _ := authenticator.snapshot(); calls != 0 {
+				t.Fatalf("authenticator calls = %d, want 0", calls)
 			}
-			if payload.Code != errorCodeValidationFailed || payload.Field != tt.wantField {
-				t.Fatalf("error = %#v, want validation error for %q", payload, tt.wantField)
-			}
-			if verifier.calls != 0 {
-				t.Fatalf("verifier calls = %d, want 0", verifier.calls)
-			}
-			if strings.Contains(rec.Body.String(), "upstream-secret-token") {
-				t.Fatal("response echoed the upstream access token")
+			if strings.Contains(rec.Body.String(), "raw-password") || strings.Contains(rec.Body.String(), "legacy-token") {
+				t.Fatal("response exposed a submitted secret")
 			}
 		})
 	}
 }
 
-func TestFluxAExchangeRejectsUnknownSiteWithoutVerification(t *testing.T) {
-	verifier := &recordingFluxAVerifier{}
-	rec := performFluxAExchange(newFluxATestRouter(verifier), `{"site":"https://attacker.example","accessToken":"upstream-secret-token"}`)
+func TestFluxALoginRejectsUnknownSiteWithoutAuthenticating(t *testing.T) {
+	authenticator := &recordingFluxACredentialAuthenticator{token: "internal-upstream-token"}
+	rec := performFluxALogin(newFluxATestRouter(authenticator, &recordingFluxAVerifier{}), `{"site":"https://attacker.example","username":"fluxa-user","password":"raw-password"}`)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
 	}
-	var payload apiErrorPayload
-	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+	assertFluxAError(t, rec, errorCodeValidationFailed, "site", "")
+	if calls, _, _, _ := authenticator.snapshot(); calls != 0 {
+		t.Fatalf("authenticator calls = %d, want 0", calls)
 	}
-	if payload.Code != errorCodeValidationFailed || payload.Field != "site" {
-		t.Fatalf("error = %#v, want site validation error", payload)
-	}
-	if verifier.calls != 0 {
-		t.Fatalf("verifier calls = %d, want 0", verifier.calls)
-	}
-	if strings.Contains(rec.Body.String(), "upstream-secret-token") {
-		t.Fatal("response echoed the upstream access token")
+	if strings.Contains(rec.Body.String(), "raw-password") {
+		t.Fatal("response exposed the password")
 	}
 }
 
-func TestFluxAExchangeMapsServiceErrorsToSafeResponses(t *testing.T) {
+func TestFluxALoginMapsCredentialErrorsToSafeResponses(t *testing.T) {
 	tests := []struct {
 		name        string
 		serviceErr  error
@@ -133,66 +162,48 @@ func TestFluxAExchangeMapsServiceErrorsToSafeResponses(t *testing.T) {
 		wantCode    string
 		wantMessage string
 	}{
-		{name: "invalid token", serviceErr: auth.ErrFluxAInvalidToken, wantStatus: http.StatusUnauthorized, wantCode: errorCodeUnauthorized, wantMessage: "invalid FluxA access token"},
+		{name: "invalid credentials", serviceErr: auth.ErrFluxAInvalidCredentials, wantStatus: http.StatusUnauthorized, wantCode: errorCodeUnauthorized, wantMessage: "invalid FluxA credentials"},
+		{name: "two factor required", serviceErr: auth.ErrFluxA2FARequired, wantStatus: http.StatusUnauthorized, wantCode: errorCodeUnauthorized, wantMessage: "complete two-factor authentication on the selected FluxA site"},
 		{name: "upstream unavailable", serviceErr: auth.ErrFluxAUnavailable, wantStatus: http.StatusServiceUnavailable, wantCode: errorCodeServiceUnavailable, wantMessage: "FluxA identity service is unavailable"},
-		{name: "unexpected failure", serviceErr: errors.New("database diagnostic with upstream-secret-token"), wantStatus: http.StatusInternalServerError, wantCode: errorCodeInternalError, wantMessage: "FluxA authentication failed"},
+		{name: "unexpected failure", serviceErr: errors.New("database diagnostic with raw-password"), wantStatus: http.StatusInternalServerError, wantCode: errorCodeInternalError, wantMessage: "FluxA authentication failed"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			verifier := &recordingFluxAVerifier{err: tt.serviceErr}
-			rec := performFluxAExchange(newFluxATestRouter(verifier), `{"site":"paid","accessToken":"upstream-secret-token"}`)
+			authenticator := &recordingFluxACredentialAuthenticator{err: tt.serviceErr}
+			rec := performFluxALogin(newFluxATestRouter(authenticator, &recordingFluxAVerifier{}), `{"site":"paid","username":"fluxa-user","password":"raw-password"}`)
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d: %s", rec.Code, tt.wantStatus, rec.Body.String())
 			}
-			var payload apiErrorPayload
-			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-				t.Fatalf("decode error payload: %v", err)
-			}
-			if payload.Code != tt.wantCode || payload.Error != tt.wantMessage {
-				t.Fatalf("error = %#v, want code %q message %q", payload, tt.wantCode, tt.wantMessage)
-			}
-			if strings.Contains(rec.Body.String(), "upstream-secret-token") {
-				t.Fatal("response exposed the upstream access token")
+			assertFluxAError(t, rec, tt.wantCode, "", tt.wantMessage)
+			if strings.Contains(rec.Body.String(), "raw-password") {
+				t.Fatal("response exposed the password")
 			}
 		})
 	}
 }
 
-func TestFluxAExchangeKeepsPaidAndFreeIdentitiesSeparate(t *testing.T) {
-	verifier := &recordingFluxAVerifier{identity: auth.VerifiedFluxAIdentity{Subject: "42", Username: "same-user"}}
-	router := newFluxATestRouter(verifier)
-
-	paid := performFluxAExchange(router, `{"site":"paid","accessToken":"paid-token"}`)
-	free := performFluxAExchange(router, `{"site":"free","accessToken":"free-token"}`)
-	if paid.Code != http.StatusOK || free.Code != http.StatusOK {
-		t.Fatalf("statuses = (%d, %d), want (200, 200): paid=%s free=%s", paid.Code, free.Code, paid.Body.String(), free.Body.String())
+func assertFluxAError(t *testing.T, rec *httptest.ResponseRecorder, wantCode, wantField, wantMessage string) {
+	t.Helper()
+	var payload apiErrorPayload
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
 	}
-
-	var paidSession, freeSession sessionDTO
-	if err := json.Unmarshal(paid.Body.Bytes(), &paidSession); err != nil {
-		t.Fatalf("decode paid session: %v", err)
-	}
-	if err := json.Unmarshal(free.Body.Bytes(), &freeSession); err != nil {
-		t.Fatalf("decode free session: %v", err)
-	}
-	if paidSession.User.ID == freeSession.User.ID {
-		t.Fatalf("paid and free user IDs both equal %q", paidSession.User.ID)
-	}
-	if paidSession.User.Username != "fluxa-paid-42" || freeSession.User.Username != "fluxa-free-42" {
-		t.Fatalf("usernames = (%q, %q), want site-scoped usernames", paidSession.User.Username, freeSession.User.Username)
+	if payload.Code != wantCode || payload.Field != wantField || (wantMessage != "" && payload.Error != wantMessage) {
+		t.Fatalf("error = %#v, want code %q field %q message %q", payload, wantCode, wantField, wantMessage)
 	}
 }
 
-func newFluxATestRouter(verifier auth.FluxAIdentityVerifier) http.Handler {
+func newFluxATestRouter(authenticator auth.FluxACredentialAuthenticator, verifier auth.FluxAIdentityVerifier) http.Handler {
 	mem := store.NewMemoryStore()
 	authService := auth.NewService(auth.ServiceDeps{
-		Users:         mem,
-		Identities:    mem,
-		Sessions:      mem,
-		ChatModels:    mem,
-		FluxAVerifier: verifier,
+		Users:              mem,
+		Identities:         mem,
+		Sessions:           mem,
+		ChatModels:         mem,
+		FluxAVerifier:      verifier,
+		FluxAAuthenticator: authenticator,
 	}, config.Config{
 		JWTSecret:  "test-secret",
 		AccessTTL:  30 * time.Minute,
@@ -201,7 +212,7 @@ func newFluxATestRouter(verifier auth.FluxAIdentityVerifier) http.Handler {
 	return NewRouter(authService, nil, nil, nil, nil, nil)
 }
 
-func performFluxAExchange(router http.Handler, body string) *httptest.ResponseRecorder {
+func performFluxALogin(router http.Handler, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPost, "/v1/auth/fluxa", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
