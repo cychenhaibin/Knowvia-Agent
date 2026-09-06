@@ -457,6 +457,26 @@ type staticFluxACredentialAuthenticator struct {
 	password string
 }
 
+type failingFluxACredentialCipher struct{ err error }
+
+func (c failingFluxACredentialCipher) Encrypt(string, []byte) (string, error) {
+	return "", c.err
+}
+
+func (c failingFluxACredentialCipher) Decrypt(string, []byte) (string, error) {
+	return "", c.err
+}
+
+type recordingSessionStore struct {
+	SessionStore
+	created int
+}
+
+func (s *recordingSessionStore) CreateSession(ctx context.Context, session domain.Session) error {
+	s.created++
+	return s.SessionStore.CreateSession(ctx, session)
+}
+
 func (a *staticFluxACredentialAuthenticator) Login(_ context.Context, site FluxASite, username, password string) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -569,6 +589,35 @@ func TestLoginWithFluxACredentialsRejectsUnavailablePersistenceBeforeAuthenticat
 	}
 	if authenticator.calls != 0 || verifier.calls != 0 {
 		t.Fatalf("authentication calls = (%d, %d), want none", authenticator.calls, verifier.calls)
+	}
+}
+
+func TestLoginWithFluxACredentialsDoesNotCreateSessionWhenEncryptionFails(t *testing.T) {
+	memory := store.NewMemoryStore()
+	sessions := &recordingSessionStore{SessionStore: memory}
+	credentialErr := errors.New("credential encryption failed")
+	authenticator := &staticFluxACredentialAuthenticator{token: "upstream-token"}
+	verifier := &staticFluxAVerifier{identity: VerifiedFluxAIdentity{Subject: "42", Username: "user"}}
+	service := NewService(ServiceDeps{
+		Users:              memory,
+		Identities:         memory,
+		Sessions:           sessions,
+		ChatModels:         memory,
+		FluxACredentials:   memory,
+		FluxACipher:        failingFluxACredentialCipher{err: credentialErr},
+		FluxAVerifier:      verifier,
+		FluxAAuthenticator: authenticator,
+	}, testAuthConfig())
+
+	_, err := service.LoginWithFluxACredentials(context.Background(), FluxASitePaid, "user", "secret")
+	if !errors.Is(err, credentialErr) {
+		t.Fatalf("error = %v, want credential encryption error", err)
+	}
+	if verifier.calls != 1 {
+		t.Fatalf("verifier calls = %d, want 1", verifier.calls)
+	}
+	if sessions.created != 0 {
+		t.Fatalf("created sessions = %d, want 0", sessions.created)
 	}
 }
 
