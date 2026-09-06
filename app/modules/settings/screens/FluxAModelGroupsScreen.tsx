@@ -102,7 +102,7 @@ export default function FluxAModelGroupsScreen() {
           className="flex-1"
           contentContainerStyle={{paddingHorizontal: 20, paddingBottom: 28}}
           showsVerticalScrollIndicator={false}>
-          <View className="gap-5">
+          <View className="gap-3">
             <Text style={{fontSize: fontSizes.sm, lineHeight: 22, color: colors.textSecondary}}>
               {t('fluxaModelGroups.description')}
             </Text>

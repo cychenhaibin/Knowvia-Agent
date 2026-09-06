@@ -51,6 +51,12 @@ type fluxAUpstreamModel struct {
 	Groups json.RawMessage `json:"groups"`
 }
 
+type fluxATokenList struct {
+	Items []struct {
+		Group string `json:"group"`
+	} `json:"items"`
+}
+
 func NewFluxAModelGroupsFetcher(paidOrigin, freeOrigin string) FluxAModelGroupsFetcher {
 	return newFluxAModelGroupsFetcher(paidOrigin, freeOrigin, newFluxAHTTPClient())
 }
@@ -98,6 +104,15 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 	if accessToken == "" {
 		return nil, ErrFluxAReauthenticationRequired
 	}
+	tokenPayload, err := f.get(ctx, origin, "/api/token/?p=1&size=20", accessToken)
+	if err != nil {
+		return nil, err
+	}
+	tokenGroups, err := parseFluxATokenGroups(tokenPayload)
+	if err != nil {
+		log.Printf("fluxa_model_groups_parse_failure route=/api/token/ classification=tokens_payload_invalid shape=%s", jsonShapeSummary(tokenPayload))
+		return nil, ErrFluxAUnavailable
+	}
 	modelPayload, err := f.get(ctx, origin, "/api/user/self/groups", accessToken)
 	if err != nil {
 		return nil, err
@@ -107,7 +122,33 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 		log.Printf("fluxa_model_groups_parse_failure route=/api/user/self/groups classification=groups_payload_invalid shape=%s", jsonShapeSummary(modelPayload))
 		return nil, ErrFluxAUnavailable
 	}
-	return groups, nil
+	return filterFluxAModelGroups(groups, tokenGroups), nil
+}
+
+func parseFluxATokenGroups(data json.RawMessage) ([]string, error) {
+	var payload fluxATokenList
+	if err := json.Unmarshal(data, &payload); err != nil || payload.Items == nil {
+		return nil, errors.New("invalid FluxA tokens payload")
+	}
+	groups := make([]string, 0, len(payload.Items))
+	for _, item := range payload.Items {
+		groups = append(groups, item.Group)
+	}
+	return uniqueFluxAStrings(groups), nil
+}
+
+func filterFluxAModelGroups(groups []FluxAModelGroup, allowed []string) []FluxAModelGroup {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, name := range allowed {
+		allowedSet[name] = struct{}{}
+	}
+	filtered := make([]FluxAModelGroup, 0, len(allowed))
+	for _, group := range groups {
+		if _, ok := allowedSet[group.Name]; ok {
+			filtered = append(filtered, group)
+		}
+	}
+	return filtered
 }
 
 func parseFluxAModelGroups(data json.RawMessage) ([]FluxAModelGroup, error) {

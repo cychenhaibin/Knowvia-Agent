@@ -19,7 +19,7 @@ import (
 
 func TestFluxAModelGroupsLogsSafeUpstreamFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/user/self/groups" {
+		if r.URL.Path == "/api/token/" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
 			_, _ = w.Write([]byte(`do-not-log-me`))
@@ -39,7 +39,7 @@ func TestFluxAModelGroupsLogsSafeUpstreamFailure(t *testing.T) {
 	if !errors.Is(err, ErrFluxAUnavailable) {
 		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
 	}
-	if !strings.Contains(logs.String(), "fluxa_model_groups_upstream_failure") || !strings.Contains(logs.String(), "route=/api/user/self/groups") || !strings.Contains(logs.String(), "status=502") {
+	if !strings.Contains(logs.String(), "fluxa_model_groups_upstream_failure") || !strings.Contains(logs.String(), "route=/api/token/?p=1&size=20") || !strings.Contains(logs.String(), "status=502") {
 		t.Fatalf("logs = %q, want safe route and status diagnostic", logs.String())
 	}
 	if strings.Contains(logs.String(), "upstream-token") || strings.Contains(logs.String(), "do-not-log-me") {
@@ -51,6 +51,8 @@ func TestFluxAModelGroupsLogsSafeParseFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
+		case "/api/token/":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"group":"default"}]}}`))
 		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"model-a","name":42,"diagnostic":"do-not-log-me"}]}`))
 		}
@@ -77,7 +79,7 @@ func TestFluxAModelGroupsLogsSafeParseFailure(t *testing.T) {
 
 func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing.T) {
 	var mu sync.Mutex
-	requests := make([]string, 0, 1)
+	requests := make([]string, 0, 2)
 	var recordedAuthorization string
 
 	paidServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -91,11 +93,13 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
+		case "/api/token/":
+			if r.URL.Query().Get("p") != "1" || r.URL.Query().Get("size") != "20" {
+				t.Fatalf("unexpected token query: %s", r.URL.RawQuery)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"group":"research"},{"group":"default"},{"group":"research"},{"group":""}]}}`))
 		case "/api/user/self/groups":
-			_, _ = w.Write([]byte(`{"success":true,"data":[
-				{"name":"default","models":[{"id":"gpt-4o","name":"GPT-4o"},{"id":"gpt-4o-mini","name":"GPT-4o mini"}]},
-				{"name":"research","models":[{"id":"gpt-4o","name":"GPT-4o"}]}
-			]}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"default":{"desc":"Default models","ratio":0.1},"research":{"desc":"Research models","ratio":0.3},"unused":{"desc":"Unused","ratio":1}}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -108,8 +112,8 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 		t.Fatalf("list groups: %v", err)
 	}
 	want := []FluxAModelGroup{
-		{Name: "default", Models: []FluxAModel{{ID: "gpt-4o", Name: "GPT-4o"}, {ID: "gpt-4o-mini", Name: "GPT-4o mini"}}},
-		{Name: "research", Models: []FluxAModel{{ID: "gpt-4o", Name: "GPT-4o"}}},
+		{Name: "default", Desc: "Default models", Ratio: 0.1},
+		{Name: "research", Desc: "Research models", Ratio: 0.3},
 	}
 	if !reflect.DeepEqual(groups, want) {
 		t.Fatalf("groups = %#v, want %#v", groups, want)
@@ -117,8 +121,8 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 	if recordedAuthorization != "Bearer upstream-token" {
 		t.Fatalf("authorization = %q, want upstream bearer token", recordedAuthorization)
 	}
-	if !reflect.DeepEqual(requests, []string{"/api/user/self/groups"}) {
-		t.Fatalf("requests = %#v, want selected group endpoint", requests)
+	if !reflect.DeepEqual(requests, []string{"/api/token/", "/api/user/self/groups"}) {
+		t.Fatalf("requests = %#v, want token and group endpoints", requests)
 	}
 }
 
@@ -128,6 +132,8 @@ func TestListFluxAModelGroupsAcceptsSingleAccountGroupString(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"groups":[{"name":"premium","models":[{"id":"model-a","name":"Model A"}]}]}}`))
+		case "/api/token/":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"group":"premium"}]}}`))
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -149,6 +155,8 @@ func TestListFluxAModelGroupsAcceptsGroupedModelMap(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"11":["gpt-4o"],"14":["claude-3"]}}`))
+		case "/api/token/":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"group":"11"},{"group":"14"}]}}`))
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -171,6 +179,8 @@ func TestListFluxAModelGroupsAcceptsGroupMetadataMap(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/api/user/self/groups" {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"cc_max":{"desc":"claude code max分组","ratio":0.3},"公益组":{"desc":"","ratio":0.001}}}`))
+		} else if r.URL.Path == "/api/token/" {
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"group":"cc_max"},{"group":"公益组"}]}}`))
 		}
 	}))
 	t.Cleanup(server.Close)
