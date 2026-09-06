@@ -21,6 +21,8 @@ var ErrFluxAInvalidCredentials = errors.New("invalid FluxA credentials")
 var ErrFluxA2FARequired = errors.New("FluxA two-factor authentication is required")
 var ErrFluxAUnavailable = errors.New("FluxA identity service is unavailable")
 var ErrFluxAUnsupportedSite = errors.New("unsupported FluxA site")
+var ErrFluxANotConnected = errors.New("FluxA account is not connected")
+var ErrFluxAReauthenticationRequired = errors.New("FluxA re-authentication is required")
 
 type FluxASite = domain.FluxASite
 

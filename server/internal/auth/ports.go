@@ -45,6 +45,10 @@ type FluxACredentialCipher interface {
 	Decrypt(ciphertext string, additionalData []byte) (string, error)
 }
 
+type FluxAModelGroupsFetcher interface {
+	List(context.Context, FluxASite, string) ([]FluxAModelGroup, error)
+}
+
 type ServiceDeps struct {
 	Users              UserStore
 	Identities         AuthIdentityStore
@@ -54,4 +58,5 @@ type ServiceDeps struct {
 	FluxAAuthenticator FluxACredentialAuthenticator
 	FluxACredentials   FluxACredentialStore
 	FluxACipher        FluxACredentialCipher
+	FluxAModels        FluxAModelGroupsFetcher
 }

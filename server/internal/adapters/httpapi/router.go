@@ -40,6 +40,7 @@ func NewRouter(
 	})
 	router.Route("/v1", func(r chi.Router) {
 		h.registerAuthRoutes(r)
+		h.registerFluxAModelRoutes(r)
 		h.registerChatRoutes(r)
 		h.registerRunRoutes(r)
 		h.registerSkillRoutes(r)
