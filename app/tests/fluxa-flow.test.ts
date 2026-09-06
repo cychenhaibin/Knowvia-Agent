@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import Module from 'node:module';
 import test from 'node:test';
 
 import {getDictionary} from '../i18n/messages';
-import {requestFromCandidates} from '../lib/apiRequest';
+import type {api as ApiClient} from '../lib/api';
 import type {FluxASite, SessionPayload} from '../types/api';
 import {
   FluxA2FARequiredError,
@@ -96,7 +97,11 @@ test('FluxA session persists its site but ordinary sessions do not', () => {
 
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
+  const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  const originalDev = (globalThis as {__DEV__?: boolean}).__DEV__;
   let fetchCall: {url: string; headers: Headers} | undefined;
+  process.env.EXPO_PUBLIC_API_BASE_URL = 'https://knowvia.example/v1';
+  (globalThis as {__DEV__?: boolean}).__DEV__ = false;
   globalThis.fetch = async (input, init) => {
     fetchCall = {url: String(input), headers: new Headers(init?.headers)};
     return new Response('[]', {
@@ -106,20 +111,52 @@ test('model group API sends only the Knowvia bearer token', async () => {
   };
 
   try {
-    await requestFromCandidates(
-      ['https://knowvia.example/v1'],
-      '/fluxa/model-groups',
-      {},
-      'knowvia-token',
-    );
+    await loadApiForTest().listFluxAModelGroups('knowvia-token');
   } finally {
     globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) {
+      delete process.env.EXPO_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.EXPO_PUBLIC_API_BASE_URL = originalBaseUrl;
+    }
+    (globalThis as {__DEV__?: boolean}).__DEV__ = originalDev;
   }
 
   assert.ok(fetchCall);
   assert.equal(fetchCall.url.endsWith('/fluxa/model-groups'), true);
   assert.equal(fetchCall.headers.get('Authorization'), 'Bearer knowvia-token');
 });
+
+function loadApiForTest(): Pick<typeof ApiClient, 'listFluxAModelGroups'> {
+  const loader = Module as unknown as {
+    _load: (request: string, parent: unknown, isMain: boolean) => unknown;
+  };
+  const originalLoad = loader._load;
+  loader._load = (request, parent, isMain) => {
+    switch (request) {
+      case 'expo-constants':
+        return {__esModule: true, default: {expoConfig: {}, linkingUri: '', experienceUrl: '', intentUri: ''}};
+      case 'react-native':
+        return {Platform: {OS: 'ios'}};
+      case 'react-native-sse':
+        return {__esModule: true, default: class EventSource {}};
+      case '@/lib/apiRequest':
+        return originalLoad('../lib/apiRequest', parent, isMain);
+      case '@/lib/fluxaApi':
+        return originalLoad('../lib/fluxaApi', parent, isMain);
+      case '@/store/auth':
+        return {useAuthStore: () => null};
+      default:
+        return originalLoad(request, parent, isMain);
+    }
+  };
+
+  try {
+    return require('../lib/api').api;
+  } finally {
+    loader._load = originalLoad;
+  }
+}
 
 test('FluxA 2FA errors from the safe backend response propagate to the UI', async () => {
   await assert.rejects(
