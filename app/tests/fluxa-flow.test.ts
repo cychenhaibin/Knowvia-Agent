@@ -158,6 +158,13 @@ test('FluxA model tab loads models through the group endpoint', () => {
   assert.match(screen, /activeTab === 'models'/);
 });
 
+test('FluxA model rows use the group and model identifier as a unique key', () => {
+  const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
+
+  assert.match(screen, /key=\{`\$\{model\.group\}:\$\{model\.id\}`\}/);
+  assert.doesNotMatch(screen, /<View key=\{model\.id\}/);
+});
+
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;

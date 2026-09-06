@@ -129,7 +129,7 @@ export default function FluxAModelGroupsScreen() {
           <View className="gap-3">
             <Text style={{fontSize: fontSizes.sm, lineHeight: 18, color: colors.textSecondary}}>{t('fluxaModelGroups.modelsDescription')}</Text>
             {modelsQuery.isLoading ? <View className="items-center py-12"><ActivityIndicator size="large" color={colors.brand} /></View> : modelsQuery.error ? <Text style={{fontSize: fontSizes.sm, color: colors.textMuted}}>{t('fluxaModelGroups.loadFailed')}</Text> : models.length === 0 ? <Text style={{fontSize: fontSizes.sm, color: colors.textMuted}}>{t('fluxaModelGroups.modelsEmpty')}</Text> : models.map((model) => (
-              <View key={model.id} className="flex-row items-center justify-between rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
+              <View key={`${model.group}:${model.id}`} className="flex-row items-center justify-between rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
                 <Text className="flex-1 pr-3" style={{fontSize: fontSizes.md, fontWeight: '600', color: colors.textPrimary}}>{model.name}</Text>
                 <View className="rounded-full bg-blue-500/15 px-2 py-1"><Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{model.group || t('fluxaModelGroups.groups')}</Text></View>
               </View>
