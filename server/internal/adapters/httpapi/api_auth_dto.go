@@ -6,11 +6,12 @@ import (
 )
 
 type authUserDTO struct {
-	ID          string `json:"id"`
-	Username    string `json:"username"`
-	DisplayName string `json:"displayName"`
-	Email       string `json:"email,omitempty"`
-	AvatarURL   string `json:"avatarUrl,omitempty"`
+	ID          string          `json:"id"`
+	Username    string          `json:"username"`
+	DisplayName string          `json:"displayName"`
+	Email       string          `json:"email,omitempty"`
+	AvatarURL   string          `json:"avatarUrl,omitempty"`
+	FluxASite   *auth.FluxASite `json:"fluxaSite,omitempty"`
 }
 
 type sessionDTO struct {
@@ -31,8 +32,11 @@ func mapAuthUser(user domain.User) authUserDTO {
 }
 
 func mapSession(tokens auth.TokenPair) sessionDTO {
+	user := mapAuthUser(tokens.User)
+	user.FluxASite = tokens.FluxASite
+
 	return sessionDTO{
-		User:         mapAuthUser(tokens.User),
+		User:         user,
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
 		ExpiresIn:    int(tokens.AccessTTL.Seconds()),

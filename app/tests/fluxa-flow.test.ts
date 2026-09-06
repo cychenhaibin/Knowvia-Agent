@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
 import {getDictionary} from '../i18n/messages';
+import {requestFromCandidates} from '../lib/apiRequest';
 import type {FluxASite, SessionPayload} from '../types/api';
 import {
   FluxA2FARequiredError,
@@ -58,7 +59,7 @@ test('single backend FluxA login trims only the username and preserves password 
           accessToken: 'knowvia-access',
           refreshToken: 'knowvia-refresh',
           expiresIn: 3600,
-          user: {id: '1', username: 'fluxa-free-42', displayName: 'FluxA User'},
+          user: {id: '1', username: 'fluxa-free-42', displayName: 'FluxA User', fluxaSite: 'free'},
         };
       },
       persistSession: async (session: SessionPayload) => {
@@ -71,8 +72,53 @@ test('single backend FluxA login trims only the username and preserves password 
   assert.equal(JSON.stringify(calls).includes('origin'), false);
   assert.equal(JSON.stringify(calls).includes('accessToken'), false);
   assert.equal(JSON.stringify(calls).includes('exchange'), false);
-  assert.deepEqual(result.user, {id: '1', username: 'fluxa-free-42', displayName: 'FluxA User'});
+  assert.equal(result.user.fluxaSite, 'free');
   assert.deepEqual(saved, [result]);
+});
+
+test('FluxA session persists its site but ordinary sessions do not', () => {
+  const fluxaSession: SessionPayload = {
+    accessToken: 'knowvia-access',
+    refreshToken: 'knowvia-refresh',
+    expiresIn: 3600,
+    user: {id: '1', username: 'fluxa-paid-42', displayName: 'FluxA User', fluxaSite: 'paid'},
+  };
+  const passwordSession: SessionPayload = {
+    accessToken: 'knowvia-access',
+    refreshToken: 'knowvia-refresh',
+    expiresIn: 3600,
+    user: {id: '2', username: 'password-user', displayName: 'Password User'},
+  };
+
+  assert.equal(fluxaSession.user.fluxaSite, 'paid');
+  assert.equal(passwordSession.user.fluxaSite, undefined);
+});
+
+test('model group API sends only the Knowvia bearer token', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCall: {url: string; headers: Headers} | undefined;
+  globalThis.fetch = async (input, init) => {
+    fetchCall = {url: String(input), headers: new Headers(init?.headers)};
+    return new Response('[]', {
+      status: 200,
+      headers: {'Content-Type': 'application/json'},
+    });
+  };
+
+  try {
+    await requestFromCandidates(
+      ['https://knowvia.example/v1'],
+      '/fluxa/model-groups',
+      {},
+      'knowvia-token',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.ok(fetchCall);
+  assert.equal(fetchCall.url.endsWith('/fluxa/model-groups'), true);
+  assert.equal(fetchCall.headers.get('Authorization'), 'Bearer knowvia-token');
 });
 
 test('FluxA 2FA errors from the safe backend response propagate to the UI', async () => {

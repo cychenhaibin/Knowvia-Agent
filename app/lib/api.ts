@@ -14,6 +14,7 @@ import type {
   KnowledgeConnectionDetails,
   KnowledgeSyncJob,
   PersistedChatMessage,
+  FluxAModelGroup,
   Run,
   RunDetails,
   RunEvent,
@@ -211,6 +212,8 @@ export const api = {
       body: JSON.stringify({idToken}),
     }),
   me: (token: string) => request<User>('/me', {}, token),
+  listFluxAModelGroups: (token: string) =>
+    request<FluxAModelGroup[]>('/fluxa/model-groups', {}, token),
   listChatModels: async (token: string) =>
     normalizeChatModelGroups(await request<UserChatModelGroups>('/chat-models', {}, token)),
   createChatModel: (
