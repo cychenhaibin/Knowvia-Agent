@@ -31,10 +31,15 @@ type FluxAIdentityVerifier interface {
 	Verify(context.Context, FluxASite, string) (VerifiedFluxAIdentity, error)
 }
 
+type FluxACredentialAuthenticator interface {
+	Login(context.Context, FluxASite, string, string) (string, error)
+}
+
 type ServiceDeps struct {
-	Users         UserStore
-	Identities    AuthIdentityStore
-	Sessions      SessionStore
-	ChatModels    ChatModelDefaultsStore
-	FluxAVerifier FluxAIdentityVerifier
+	Users              UserStore
+	Identities         AuthIdentityStore
+	Sessions           SessionStore
+	ChatModels         ChatModelDefaultsStore
+	FluxAVerifier      FluxAIdentityVerifier
+	FluxAAuthenticator FluxACredentialAuthenticator
 }

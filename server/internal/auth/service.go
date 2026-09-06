@@ -21,14 +21,15 @@ var ErrInvalidMicrosoftToken = errors.New("invalid microsoft access token")
 var ErrMicrosoftIdentityUnavailable = errors.New("microsoft identity service is unavailable")
 
 type Service struct {
-	userStore         UserStore
-	authIdentityStore AuthIdentityStore
-	sessionStore      SessionStore
-	chatModelStore    ChatModelDefaultsStore
-	cfg               config.Config
-	googleVerifier    GoogleTokenVerifier
-	microsoftVerifier MicrosoftTokenVerifier
-	fluxAVerifier     FluxAIdentityVerifier
+	userStore          UserStore
+	authIdentityStore  AuthIdentityStore
+	sessionStore       SessionStore
+	chatModelStore     ChatModelDefaultsStore
+	cfg                config.Config
+	googleVerifier     GoogleTokenVerifier
+	microsoftVerifier  MicrosoftTokenVerifier
+	fluxAVerifier      FluxAIdentityVerifier
+	fluxAAuthenticator FluxACredentialAuthenticator
 }
 
 var nonExpiringSessionExpiresAt = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
@@ -71,14 +72,15 @@ func NewServiceWithVerifiers(
 	fluxAVerifier FluxAIdentityVerifier,
 ) *Service {
 	return &Service{
-		userStore:         deps.Users,
-		authIdentityStore: deps.Identities,
-		sessionStore:      deps.Sessions,
-		chatModelStore:    deps.ChatModels,
-		cfg:               cfg,
-		googleVerifier:    googleVerifier,
-		microsoftVerifier: microsoftVerifier,
-		fluxAVerifier:     fluxAVerifier,
+		userStore:          deps.Users,
+		authIdentityStore:  deps.Identities,
+		sessionStore:       deps.Sessions,
+		chatModelStore:     deps.ChatModels,
+		cfg:                cfg,
+		googleVerifier:     googleVerifier,
+		microsoftVerifier:  microsoftVerifier,
+		fluxAVerifier:      fluxAVerifier,
+		fluxAAuthenticator: resolveFluxAAuthenticator(deps, cfg),
 	}
 }
 
@@ -87,6 +89,13 @@ func resolveFluxAVerifier(deps ServiceDeps, cfg config.Config) FluxAIdentityVeri
 		return deps.FluxAVerifier
 	}
 	return NewFluxAIdentityVerifier(cfg.FluxAPaidOrigin, cfg.FluxAFreeOrigin)
+}
+
+func resolveFluxAAuthenticator(deps ServiceDeps, cfg config.Config) FluxACredentialAuthenticator {
+	if deps.FluxAAuthenticator != nil {
+		return deps.FluxAAuthenticator
+	}
+	return NewFluxACredentialAuthenticator(cfg.FluxAPaidOrigin, cfg.FluxAFreeOrigin)
 }
 
 func (s *Service) SeedDevUsers(ctx context.Context) error {

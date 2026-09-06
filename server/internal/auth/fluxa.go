@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,8 @@ import (
 )
 
 var ErrFluxAInvalidToken = errors.New("invalid FluxA access token")
+var ErrFluxAInvalidCredentials = errors.New("invalid FluxA credentials")
+var ErrFluxA2FARequired = errors.New("FluxA two-factor authentication is required")
 var ErrFluxAUnavailable = errors.New("FluxA identity service is unavailable")
 var ErrFluxAUnsupportedSite = errors.New("unsupported FluxA site")
 
@@ -40,6 +43,12 @@ type fluxAIdentityVerifier struct {
 	httpClient *http.Client
 }
 
+type fluxACredentialAuthenticator struct {
+	paidOrigin string
+	freeOrigin string
+	httpClient *http.Client
+}
+
 type fluxAIdentityResponse struct {
 	Success bool              `json:"success"`
 	Data    fluxAIdentityData `json:"data"`
@@ -53,19 +62,47 @@ type fluxAIdentityData struct {
 	AvatarURL   string `json:"avatar_url"`
 }
 
+type fluxACredentialResponse struct {
+	Success bool                        `json:"success"`
+	Data    fluxACredentialResponseData `json:"data"`
+}
+
+type fluxACredentialResponseData struct {
+	AccessToken string `json:"access_token"`
+	Require2FA  bool   `json:"require_2fa"`
+}
+
 func NewFluxAIdentityVerifier(paidOrigin, freeOrigin string) FluxAIdentityVerifier {
-	return newFluxAIdentityVerifier(paidOrigin, freeOrigin, &http.Client{
+	return newFluxAIdentityVerifier(paidOrigin, freeOrigin, newFluxAHTTPClient())
+}
+
+func NewFluxACredentialAuthenticator(paidOrigin, freeOrigin string) FluxACredentialAuthenticator {
+	return newFluxACredentialAuthenticator(paidOrigin, freeOrigin, newFluxAHTTPClient())
+}
+
+func newFluxAHTTPClient() *http.Client {
+	return &http.Client{
 		Timeout: 10 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
-	})
+	}
 }
 
 func newFluxAIdentityVerifier(paidOrigin, freeOrigin string, httpClient *http.Client) *fluxAIdentityVerifier {
 	paidOrigin, _ = normalizeFluxAOrigin(paidOrigin)
 	freeOrigin, _ = normalizeFluxAOrigin(freeOrigin)
 	return &fluxAIdentityVerifier{
+		paidOrigin: paidOrigin,
+		freeOrigin: freeOrigin,
+		httpClient: httpClient,
+	}
+}
+
+func newFluxACredentialAuthenticator(paidOrigin, freeOrigin string, httpClient *http.Client) *fluxACredentialAuthenticator {
+	paidOrigin, _ = normalizeFluxAOrigin(paidOrigin)
+	freeOrigin, _ = normalizeFluxAOrigin(freeOrigin)
+	return &fluxACredentialAuthenticator{
 		paidOrigin: paidOrigin,
 		freeOrigin: freeOrigin,
 		httpClient: httpClient,
@@ -138,20 +175,89 @@ func (v *fluxAIdentityVerifier) Verify(ctx context.Context, site FluxASite, acce
 }
 
 func (v *fluxAIdentityVerifier) origin(site FluxASite) (string, error) {
+	return fluxAOrigin(site, v.paidOrigin, v.freeOrigin)
+}
+
+func (a *fluxACredentialAuthenticator) origin(site FluxASite) (string, error) {
+	return fluxAOrigin(site, a.paidOrigin, a.freeOrigin)
+}
+
+func fluxAOrigin(site FluxASite, paidOrigin, freeOrigin string) (string, error) {
 	switch site {
 	case FluxASitePaid:
-		if v.paidOrigin == "" {
+		if paidOrigin == "" {
 			return "", ErrFluxAUnavailable
 		}
-		return v.paidOrigin, nil
+		return paidOrigin, nil
 	case FluxASiteFree:
-		if v.freeOrigin == "" {
+		if freeOrigin == "" {
 			return "", ErrFluxAUnavailable
 		}
-		return v.freeOrigin, nil
+		return freeOrigin, nil
 	default:
 		return "", ErrFluxAUnsupportedSite
 	}
+}
+
+func (a *fluxACredentialAuthenticator) Login(ctx context.Context, site FluxASite, username, password string) (string, error) {
+	origin, err := a.origin(site)
+	if err != nil {
+		return "", err
+	}
+
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+	if username == "" || password == "" {
+		return "", ErrFluxAInvalidCredentials
+	}
+
+	body, err := json.Marshal(struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}{Username: username, Password: password})
+	if err != nil {
+		return "", ErrFluxAUnavailable
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, origin+"/api/user/login", bytes.NewReader(body))
+	if err != nil {
+		return "", ErrFluxAUnavailable
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return "", ErrFluxAUnavailable
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return "", ErrFluxAInvalidCredentials
+	default:
+		return "", ErrFluxAUnavailable
+	}
+
+	decoder := json.NewDecoder(io.LimitReader(resp.Body, 1<<20))
+	var payload fluxACredentialResponse
+	if err := decoder.Decode(&payload); err != nil {
+		return "", ErrFluxAUnavailable
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return "", ErrFluxAUnavailable
+	}
+	if payload.Data.Require2FA {
+		return "", ErrFluxA2FARequired
+	}
+	if !payload.Success {
+		return "", ErrFluxAInvalidCredentials
+	}
+	accessToken := strings.TrimSpace(payload.Data.AccessToken)
+	if accessToken == "" {
+		return "", ErrFluxAInvalidCredentials
+	}
+	return accessToken, nil
 }
 
 func fluxAProvider(site FluxASite) (domain.AuthProvider, error) {
@@ -235,6 +341,20 @@ func (s *Service) LoginWithFluxA(ctx context.Context, site FluxASite, accessToke
 	}
 
 	return s.issueSession(ctx, user)
+}
+
+func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite, username, password string) (TokenPair, error) {
+	if _, err := fluxAProvider(site); err != nil {
+		return TokenPair{}, err
+	}
+	if s.fluxAAuthenticator == nil {
+		return TokenPair{}, ErrFluxAUnavailable
+	}
+	accessToken, err := s.fluxAAuthenticator.Login(ctx, site, strings.TrimSpace(username), strings.TrimSpace(password))
+	if err != nil {
+		return TokenPair{}, err
+	}
+	return s.LoginWithFluxA(ctx, site, accessToken)
 }
 
 func normalizeFluxAIdentity(identity VerifiedFluxAIdentity) (VerifiedFluxAIdentity, error) {
