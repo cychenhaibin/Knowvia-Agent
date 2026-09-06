@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/base64"
+	"errors"
 	"net/url"
 	"os"
 	"strconv"
@@ -33,6 +35,7 @@ type Config struct {
 	MicrosoftTenantID     string
 	FluxAPaidOrigin       string
 	FluxAFreeOrigin       string
+	FluxACredentialsKey   []byte
 	OpenAIBaseURL         string
 	OpenAIAPIKey          string
 	OpenAIChatModel       string
@@ -64,6 +67,8 @@ func Load() Config {
 		}
 	}
 
+	fluxACredentialsKey, _ := DecodeFluxACredentialsKey(os.Getenv("QQA_FLUXA_CREDENTIALS_KEY"))
+
 	return Config{
 		ServerAddr:            getenv("QQA_SERVER_ADDR", "0.0.0.0:8088"),
 		StoreBackend:          storeBackend,
@@ -87,6 +92,7 @@ func Load() Config {
 		MicrosoftTenantID:     getenv("QQA_MICROSOFT_TENANT_ID", "consumers"),
 		FluxAPaidOrigin:       NormalizeFluxAOrigin(getenv("QQA_FLUXA_PAID_ORIGIN", "https://fluxa.camila.qzz.io")),
 		FluxAFreeOrigin:       NormalizeFluxAOrigin(getenv("QQA_FLUXA_FREE_ORIGIN", "https://free.camila.qzz.io")),
+		FluxACredentialsKey:   fluxACredentialsKey,
 		OpenAIBaseURL:         getenv("QQA_OPENAI_BASE_URL", "http://127.0.0.1:11434/v1"),
 		OpenAIAPIKey:          getenv("QQA_OPENAI_API_KEY", "ollama"),
 		OpenAIChatModel:       getenv("QQA_OPENAI_CHAT_MODEL", domain.DefaultKnowledgeChatModelName),
@@ -100,6 +106,14 @@ func Load() Config {
 		DevUsers:              parseDevUsers(getenv("QQA_DEV_USERS", "admin:admin123")),
 		KnowledgeChunkSize:    getenvInt("QQA_KNOWLEDGE_CHUNK_SIZE", 900),
 	}
+}
+
+func DecodeFluxACredentialsKey(raw string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil || len(key) != 32 {
+		return nil, errors.New("FluxA credentials key must be a base64-encoded 32-byte key")
+	}
+	return key, nil
 }
 
 // NormalizeFluxAOrigin accepts only an HTTPS origin. Invalid values return an

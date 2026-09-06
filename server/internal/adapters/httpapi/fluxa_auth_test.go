@@ -266,12 +266,14 @@ func newFluxATestRouter(authenticator auth.FluxACredentialAuthenticator, verifie
 		Identities:         mem,
 		Sessions:           mem,
 		ChatModels:         mem,
+		FluxACredentials:   mem,
 		FluxAVerifier:      verifier,
 		FluxAAuthenticator: authenticator,
 	}, config.Config{
-		JWTSecret:  "test-secret",
-		AccessTTL:  30 * time.Minute,
-		RefreshTTL: 24 * time.Hour,
+		JWTSecret:           "test-secret",
+		AccessTTL:           30 * time.Minute,
+		RefreshTTL:          24 * time.Hour,
+		FluxACredentialsKey: make([]byte, 32),
 	})
 	return NewRouter(authService, nil, nil, nil, nil, nil)
 }

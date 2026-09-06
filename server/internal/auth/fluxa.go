@@ -22,11 +22,11 @@ var ErrFluxA2FARequired = errors.New("FluxA two-factor authentication is require
 var ErrFluxAUnavailable = errors.New("FluxA identity service is unavailable")
 var ErrFluxAUnsupportedSite = errors.New("unsupported FluxA site")
 
-type FluxASite string
+type FluxASite = domain.FluxASite
 
 const (
-	FluxASitePaid FluxASite = "paid"
-	FluxASiteFree FluxASite = "free"
+	FluxASitePaid = domain.FluxASitePaid
+	FluxASiteFree = domain.FluxASiteFree
 )
 
 type VerifiedFluxAIdentity struct {
@@ -347,6 +347,9 @@ func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite,
 	if _, err := fluxAProvider(site); err != nil {
 		return TokenPair{}, err
 	}
+	if s.fluxACredentials == nil || s.fluxACipher == nil {
+		return TokenPair{}, ErrFluxAUnavailable
+	}
 	if s.fluxAAuthenticator == nil {
 		return TokenPair{}, ErrFluxAUnavailable
 	}
@@ -354,7 +357,30 @@ func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite,
 	if err != nil {
 		return TokenPair{}, err
 	}
-	return s.LoginWithFluxA(ctx, site, accessToken)
+	tokens, err := s.LoginWithFluxA(ctx, site, accessToken)
+	if err != nil {
+		return TokenPair{}, err
+	}
+	ciphertext, err := s.fluxACipher.Encrypt(accessToken, fluxACredentialAdditionalData(tokens.User.ID, site))
+	if err != nil {
+		return TokenPair{}, err
+	}
+	now := time.Now().UTC()
+	if err := s.fluxACredentials.UpsertFluxACredential(ctx, domain.FluxACredential{
+		UserID:          tokens.User.ID,
+		Site:            site,
+		TokenCiphertext: ciphertext,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		return TokenPair{}, err
+	}
+	tokens.FluxASite = &site
+	return tokens, nil
+}
+
+func fluxACredentialAdditionalData(userID string, site FluxASite) []byte {
+	return []byte(userID + ":" + string(site))
 }
 
 func normalizeFluxAIdentity(identity VerifiedFluxAIdentity) (VerifiedFluxAIdentity, error) {

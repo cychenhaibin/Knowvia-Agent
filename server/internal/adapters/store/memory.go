@@ -24,6 +24,7 @@ type memoryAuthState struct {
 	authIdentityLookup map[string]string
 	sessions           map[string]domain.Session
 	sessionsByToken    map[string]string
+	fluxACredentials   map[string]domain.FluxACredential
 }
 
 type memoryChatState struct {
@@ -72,6 +73,7 @@ func NewMemoryStore() *MemoryStore {
 			authIdentityLookup: map[string]string{},
 			sessions:           map[string]domain.Session{},
 			sessionsByToken:    map[string]string{},
+			fluxACredentials:   map[string]domain.FluxACredential{},
 		},
 		memoryChatState: memoryChatState{
 			chatModels:     map[string]domain.UserChatModel{},

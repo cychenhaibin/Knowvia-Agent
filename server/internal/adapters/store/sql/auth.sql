@@ -35,3 +35,15 @@ ON CONFLICT (provider, provider_subject) DO UPDATE SET
 	email_verified = EXCLUDED.email_verified,
 	avatar_url = EXCLUDED.avatar_url,
 	updated_at = EXCLUDED.updated_at;
+
+-- name: UpsertFluxACredential :execrows
+INSERT INTO fluxa_credentials (user_id, site, token_ciphertext, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (user_id, site) DO UPDATE SET
+	token_ciphertext = EXCLUDED.token_ciphertext,
+	updated_at = EXCLUDED.updated_at;
+
+-- name: GetFluxACredential :one
+SELECT user_id, site, token_ciphertext, created_at, updated_at
+FROM fluxa_credentials
+WHERE user_id = $1 AND site = $2;

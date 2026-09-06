@@ -65,6 +65,31 @@ func (s *PostgresStore) UpsertAuthIdentity(ctx context.Context, identity domain.
 	return err
 }
 
+func (s *PostgresStore) UpsertFluxACredential(ctx context.Context, credential domain.FluxACredential) error {
+	_, err := s.queries.UpsertFluxACredential(ctx, sqldb.UpsertFluxACredentialParams{
+		UserID:          credential.UserID,
+		Site:            string(credential.Site),
+		TokenCiphertext: credential.TokenCiphertext,
+		CreatedAt:       pgTimestamptz(credential.CreatedAt),
+		UpdatedAt:       pgTimestamptz(credential.UpdatedAt),
+	})
+	return err
+}
+
+func (s *PostgresStore) GetFluxACredential(ctx context.Context, userID string, site domain.FluxASite) (domain.FluxACredential, error) {
+	row, err := s.queries.GetFluxACredential(ctx, sqldb.GetFluxACredentialParams{UserID: userID, Site: string(site)})
+	if err != nil {
+		return domain.FluxACredential{}, normalizeError(err)
+	}
+	return domain.FluxACredential{
+		UserID:          row.UserID,
+		Site:            domain.FluxASite(row.Site),
+		TokenCiphertext: row.TokenCiphertext,
+		CreatedAt:       pgTimestamptzValue(row.CreatedAt),
+		UpdatedAt:       pgTimestamptzValue(row.UpdatedAt),
+	}, nil
+}
+
 func mapDBUser(id, username, displayName, email, avatarURL, passwordHash string, createdAt pgtype.Timestamptz) domain.User {
 	return domain.User{
 		ID:           id,

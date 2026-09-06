@@ -12,4 +12,5 @@ type TokenPair struct {
 	AccessTTL    time.Duration
 	RefreshTTL   time.Duration
 	User         domain.User
+	FluxASite    *FluxASite
 }

@@ -1,6 +1,18 @@
 package config
 
-import "testing"
+import (
+	"encoding/base64"
+	"testing"
+)
+
+func TestDecodeFluxACredentialsKeyRejectsMissingOrWrongLength(t *testing.T) {
+	for _, raw := range []string{"", base64.StdEncoding.EncodeToString(make([]byte, 31))} {
+		_, err := DecodeFluxACredentialsKey(raw)
+		if err == nil {
+			t.Fatalf("key %q unexpectedly accepted", raw)
+		}
+	}
+}
 
 func TestLoadFluxAOriginsUsesDefaults(t *testing.T) {
 	t.Setenv("QQA_FLUXA_PAID_ORIGIN", "")
