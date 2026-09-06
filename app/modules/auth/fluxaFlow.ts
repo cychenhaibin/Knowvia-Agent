@@ -48,7 +48,7 @@ export async function loginThroughFluxA(
   const session = await dependencies.loginWithFluxA(
     input.site,
     input.username.trim(),
-    input.password,
+    input.password.trim(),
   );
   await dependencies.persistSession(session);
   return session;

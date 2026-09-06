@@ -46,7 +46,7 @@ test('single backend FluxA login trims credentials, persists the Knowvia session
   const calls: string[] = [];
   const saved: unknown[] = [];
   const result = await loginThroughFluxA(
-    {site: 'free', username: ' user ', password: 'secret'},
+    {site: 'free', username: ' user ', password: ' secret '},
     {
       loginWithFluxA: async (
         site: FluxASite,
