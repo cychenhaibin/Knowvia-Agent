@@ -178,7 +178,18 @@ func jsonShapeSummary(raw json.RawMessage) string {
 			shape := "value"
 			switch nested.(type) {
 			case []any:
-				shape = "array"
+				items := nested.([]any)
+				shape = "array:length=" + strconv.Itoa(len(items))
+				if len(items) > 0 {
+					if item, ok := items[0].(map[string]any); ok {
+						itemKeys := make([]string, 0, len(item))
+						for itemKey := range item {
+							itemKeys = append(itemKeys, itemKey)
+						}
+						sort.Strings(itemKeys)
+						shape += ":item_keys=" + strings.Join(itemKeys, ",")
+					}
+				}
 			case map[string]any:
 				shape = "object"
 			}
