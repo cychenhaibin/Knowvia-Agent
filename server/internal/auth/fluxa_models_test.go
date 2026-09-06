@@ -19,13 +19,13 @@ import (
 
 func TestFluxAModelGroupsLogsSafeUpstreamFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/user/self" {
+		if r.URL.Path == "/api/user/self/groups" {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"success":true,"data":{"group":"default"}}`))
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`do-not-log-me`))
 			return
 		}
-		w.WriteHeader(http.StatusBadGateway)
-		_, _ = w.Write([]byte(`do-not-log-me`))
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(server.Close)
 
@@ -39,7 +39,7 @@ func TestFluxAModelGroupsLogsSafeUpstreamFailure(t *testing.T) {
 	if !errors.Is(err, ErrFluxAUnavailable) {
 		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
 	}
-	if !strings.Contains(logs.String(), "fluxa_model_groups_upstream_failure") || !strings.Contains(logs.String(), "route=/api/models") || !strings.Contains(logs.String(), "status=502") {
+	if !strings.Contains(logs.String(), "fluxa_model_groups_upstream_failure") || !strings.Contains(logs.String(), "route=/api/user/self/groups") || !strings.Contains(logs.String(), "status=502") {
 		t.Fatalf("logs = %q, want safe route and status diagnostic", logs.String())
 	}
 	if strings.Contains(logs.String(), "upstream-token") || strings.Contains(logs.String(), "do-not-log-me") {
@@ -51,9 +51,7 @@ func TestFluxAModelGroupsLogsSafeParseFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/api/user/self":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"group":"default"}}`))
-		case "/api/models":
+		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"model-a","name":42,"diagnostic":"do-not-log-me"}]}`))
 		}
 	}))
@@ -69,7 +67,7 @@ func TestFluxAModelGroupsLogsSafeParseFailure(t *testing.T) {
 	if !errors.Is(err, ErrFluxAUnavailable) {
 		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
 	}
-	if !strings.Contains(logs.String(), "fluxa_model_groups_parse_failure") || !strings.Contains(logs.String(), "route=/api/models") || !strings.Contains(logs.String(), "classification=models_payload_invalid") {
+	if !strings.Contains(logs.String(), "fluxa_model_groups_parse_failure") || !strings.Contains(logs.String(), "route=/api/user/self/groups") || !strings.Contains(logs.String(), "classification=groups_payload_invalid") {
 		t.Fatalf("logs = %q, want safe parse diagnostic", logs.String())
 	}
 	if strings.Contains(logs.String(), "upstream-token") || strings.Contains(logs.String(), "do-not-log-me") {
@@ -79,7 +77,7 @@ func TestFluxAModelGroupsLogsSafeParseFailure(t *testing.T) {
 
 func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing.T) {
 	var mu sync.Mutex
-	requests := make([]string, 0, 2)
+	requests := make([]string, 0, 1)
 	var recordedAuthorization string
 
 	paidServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -93,14 +91,11 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/api/user/self":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"groups":["  default ","research","default"]}}`))
-		case "/api/models":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"models":[
-				{"id":" gpt-4o ","name":" GPT-4o ","group":" default "},
-				{"id":"gpt-4o","name":"GPT-4o","groups":["default","research","research"]},
-				{"id":"gpt-4o-mini","name":" GPT-4o mini "}
-			]}}`))
+		case "/api/user/self/groups":
+			_, _ = w.Write([]byte(`{"success":true,"data":[
+				{"name":"default","models":[{"id":"gpt-4o","name":"GPT-4o"},{"id":"gpt-4o-mini","name":"GPT-4o mini"}]},
+				{"name":"research","models":[{"id":"gpt-4o","name":"GPT-4o"}]}
+			]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -122,8 +117,8 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 	if recordedAuthorization != "Bearer upstream-token" {
 		t.Fatalf("authorization = %q, want upstream bearer token", recordedAuthorization)
 	}
-	if !reflect.DeepEqual(requests, []string{"/api/user/self", "/api/models"}) {
-		t.Fatalf("requests = %#v, want selected origin endpoints", requests)
+	if !reflect.DeepEqual(requests, []string{"/api/user/self/groups"}) {
+		t.Fatalf("requests = %#v, want selected group endpoint", requests)
 	}
 }
 
@@ -131,10 +126,8 @@ func TestListFluxAModelGroupsAcceptsSingleAccountGroupString(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/api/user/self":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"group":"  premium  "}}`))
-		case "/api/models":
-			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"model-a","name":" Model A "}]}`))
+		case "/api/user/self/groups":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"groups":[{"name":"premium","models":[{"id":"model-a","name":"Model A"}]}]}}`))
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -154,9 +147,7 @@ func TestListFluxAModelGroupsAcceptsGroupedModelMap(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/api/user/self":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"groups":["11","14"]}}`))
-		case "/api/models":
+		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"11":["gpt-4o"],"14":["claude-3"]}}`))
 		}
 	}))

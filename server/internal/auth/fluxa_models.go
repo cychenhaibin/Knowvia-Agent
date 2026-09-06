@@ -96,25 +96,61 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 	if accessToken == "" {
 		return nil, ErrFluxAReauthenticationRequired
 	}
-	accountPayload, err := f.get(ctx, origin, "/api/user/self", accessToken)
+	modelPayload, err := f.get(ctx, origin, "/api/user/self/groups", accessToken)
 	if err != nil {
 		return nil, err
 	}
-	accountGroups, err := parseFluxAAccountGroups(accountPayload)
+	groups, err := parseFluxAModelGroups(modelPayload)
 	if err != nil {
-		log.Printf("fluxa_model_groups_parse_failure route=/api/user/self classification=account_payload_invalid")
+		log.Printf("fluxa_model_groups_parse_failure route=/api/user/self/groups classification=groups_payload_invalid shape=%s", jsonShapeSummary(modelPayload))
 		return nil, ErrFluxAUnavailable
 	}
-	modelPayload, err := f.get(ctx, origin, "/api/models", accessToken)
-	if err != nil {
-		return nil, err
+	return groups, nil
+}
+
+func parseFluxAModelGroups(data json.RawMessage) ([]FluxAModelGroup, error) {
+	var wrapped struct {
+		Groups json.RawMessage `json:"groups"`
 	}
-	models, err := parseFluxAModels(modelPayload)
-	if err != nil {
-		log.Printf("fluxa_model_groups_parse_failure route=/api/models classification=models_payload_invalid shape=%s", jsonShapeSummary(modelPayload))
-		return nil, ErrFluxAUnavailable
+	if json.Unmarshal(data, &wrapped) == nil && len(wrapped.Groups) > 0 && string(wrapped.Groups) != "null" {
+		return parseFluxAModelGroups(wrapped.Groups)
 	}
-	return normalizeFluxAModelGroups(accountGroups, models), nil
+	var groups []FluxAModelGroup
+	if json.Unmarshal(data, &groups) == nil && groups != nil {
+		for i := range groups {
+			groups[i].Name = strings.TrimSpace(groups[i].Name)
+			if groups[i].Name == "" {
+				return nil, errors.New("invalid FluxA group")
+			}
+		}
+		return groups, nil
+	}
+	var grouped map[string]json.RawMessage
+	if json.Unmarshal(data, &grouped) != nil {
+		return nil, errors.New("invalid FluxA groups payload")
+	}
+	result := make([]FluxAModelGroup, 0, len(grouped))
+	for name, rawModels := range grouped {
+		var names []string
+		if json.Unmarshal(rawModels, &names) != nil {
+			continue
+		}
+		models := make([]FluxAModel, 0, len(names))
+		for _, modelName := range names {
+			modelName = strings.TrimSpace(modelName)
+			if modelName != "" {
+				models = append(models, FluxAModel{ID: modelName, Name: modelName})
+			}
+		}
+		if strings.TrimSpace(name) != "" {
+			result = append(result, FluxAModelGroup{Name: strings.TrimSpace(name), Models: models})
+		}
+	}
+	if len(result) == 0 {
+		return nil, errors.New("invalid FluxA groups payload")
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	return result, nil
 }
 
 func (f *fluxAModelGroupsFetcher) get(ctx context.Context, origin, path, accessToken string) (json.RawMessage, error) {
