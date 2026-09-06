@@ -54,6 +54,8 @@ export type FluxASite = 'paid' | 'free';
 
 export interface FluxAModelGroup {
   name: string;
+  desc?: string;
+  ratio?: number;
   models: Array<{id: string; name: string}>;
 }
 

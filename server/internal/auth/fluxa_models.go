@@ -23,6 +23,8 @@ type FluxAModel struct {
 
 type FluxAModelGroup struct {
 	Name   string       `json:"name"`
+	Desc   string       `json:"desc,omitempty"`
+	Ratio  float64      `json:"ratio,omitempty"`
 	Models []FluxAModel `json:"models"`
 }
 
@@ -133,6 +135,16 @@ func parseFluxAModelGroups(data json.RawMessage) ([]FluxAModelGroup, error) {
 	for name, rawModels := range grouped {
 		var names []string
 		if json.Unmarshal(rawModels, &names) != nil {
+			var metadata struct {
+				Desc  string  `json:"desc"`
+				Ratio float64 `json:"ratio"`
+			}
+			if json.Unmarshal(rawModels, &metadata) != nil {
+				continue
+			}
+			if strings.TrimSpace(name) != "" {
+				result = append(result, FluxAModelGroup{Name: strings.TrimSpace(name), Desc: strings.TrimSpace(metadata.Desc), Ratio: metadata.Ratio})
+			}
 			continue
 		}
 		models := make([]FluxAModel, 0, len(names))

@@ -23,21 +23,22 @@ function FluxAModelGroupSection({group}: {group: FluxAModelGroup}) {
   const {colors} = useAppTheme();
 
   return (
-    <View className="gap-3 rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
-      <Text style={{fontSize: fontSizes.lg, fontWeight: '700', color: colors.textPrimary}}>
-        {group.name}
-      </Text>
-      <View className="gap-2">
-        {group.models.map((model) => (
-          <View
-            key={model.id}
-            className="rounded-xl px-3 py-2.5"
-            style={{backgroundColor: colors.surfaceMuted}}>
-            <Text style={{fontSize: fontSizes.sm, color: colors.textPrimary}}>{model.name}</Text>
-          </View>
-        ))}
+    <Pressable className="rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
+      <View className="flex-row items-center justify-between">
+        <Text style={{fontSize: fontSizes.lg, fontWeight: '700', color: colors.textPrimary}}>
+          {group.name}
+        </Text>
+        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
       </View>
-    </View>
+      <View className="mt-2 flex-row items-center gap-2">
+        <Text className="flex-1" style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>
+          {group.desc || ' '}
+        </Text>
+        <View className="rounded-full px-2 py-1" style={{backgroundColor: colors.brand + '22'}}>
+          <Text style={{fontSize: fontSizes.xs, color: colors.brand}}>{group.ratio}x</Text>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 

@@ -166,6 +166,25 @@ func TestListFluxAModelGroupsAcceptsGroupedModelMap(t *testing.T) {
 	}
 }
 
+func TestListFluxAModelGroupsAcceptsGroupMetadataMap(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/user/self/groups" {
+			_, _ = w.Write([]byte(`{"success":true,"data":{"cc_max":{"desc":"claude code max分组","ratio":0.3},"公益组":{"desc":"","ratio":0.001}}}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+	service, user := newFluxAModelGroupsService(t, server.URL, server.URL, server.Client())
+	groups, err := service.ListFluxAModelGroups(context.Background(), user.ID, FluxASitePaid)
+	if err != nil {
+		t.Fatalf("list groups: %v", err)
+	}
+	want := []FluxAModelGroup{{Name: "cc_max", Desc: "claude code max分组", Ratio: 0.3}, {Name: "公益组", Ratio: 0.001}}
+	if !reflect.DeepEqual(groups, want) {
+		t.Fatalf("groups = %#v, want %#v", groups, want)
+	}
+}
+
 func TestListFluxAModelGroupsMapsMissingCredentialAndExpiredUpstreamToken(t *testing.T) {
 	service, user := newFluxAModelGroupsServiceWithCredentialSites(t, "https://paid.example", "https://free.example", nil, nil)
 	_, err := service.ListFluxAModelGroups(context.Background(), user.ID, FluxASiteFree)
