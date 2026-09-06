@@ -60,6 +60,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="(account)/language" options={{headerShown: false}} />
             <Stack.Screen name="(account)/models" options={{headerShown: false}} />
+            <Stack.Screen name="(account)/fluxa-model-groups" options={{headerShown: false}} />
             <Stack.Screen
               name="(account)/profile"
               options={{headerShown: false, animation: 'slide_from_right'}}

@@ -4,6 +4,7 @@ import { Linking, Pressable, Text, View } from 'react-native';
 import { useState, type ReactNode } from 'react';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { FluxAIcon } from '@/components/FluxAIcon';
 import { Screen } from '@/components/Screen';
 import { useTatos } from '@/components/Tatos';
 import { useI18n } from '@/i18n/useI18n';
@@ -192,7 +193,7 @@ export default function LoginScreen() {
 
             <LoginOption
               label={t('login.fluxaLogin')}
-              icon={<AntDesign name="mail" size={20} color={colors.textPrimary} />}
+              icon={<FluxAIcon color={colors.textPrimary} />}
               colors={colors}
               onPress={() =>
                 router.push({

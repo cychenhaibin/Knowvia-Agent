@@ -95,6 +95,18 @@ test('FluxA session persists its site but ordinary sessions do not', () => {
   assert.equal(passwordSession.user.fluxaSite, undefined);
 });
 
+test('FluxA login renders the local RetroArch SVG', () => {
+  const login = readFileSync('modules/auth/screens/LoginScreen-en.tsx', 'utf8');
+  assert.match(login, /<FluxAIcon/);
+  assert.doesNotMatch(login, /cdn\.simpleicons\.org/);
+});
+
+test('model group settings are gated by fluxaSite', () => {
+  const profile = readFileSync('modules/profile/screens/ProfileScreen.tsx', 'utf8');
+  assert.match(profile, /user\?\.fluxaSite/);
+  assert.match(profile, /router\.push\('\/fluxa-model-groups'\)/);
+});
+
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
