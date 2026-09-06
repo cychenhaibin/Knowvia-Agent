@@ -150,6 +150,31 @@ func TestListFluxAModelGroupsAcceptsSingleAccountGroupString(t *testing.T) {
 	}
 }
 
+func TestListFluxAModelGroupsAcceptsGroupedModelMap(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/user/self":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"groups":["11","14"]}}`))
+		case "/api/models":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"11":["gpt-4o"],"14":["claude-3"]}}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+	service, user := newFluxAModelGroupsService(t, server.URL, server.URL, server.Client())
+	groups, err := service.ListFluxAModelGroups(context.Background(), user.ID, FluxASitePaid)
+	if err != nil {
+		t.Fatalf("list groups: %v", err)
+	}
+	want := []FluxAModelGroup{
+		{Name: "11", Models: []FluxAModel{{ID: "gpt-4o", Name: "gpt-4o"}}},
+		{Name: "14", Models: []FluxAModel{{ID: "claude-3", Name: "claude-3"}}},
+	}
+	if !reflect.DeepEqual(groups, want) {
+		t.Fatalf("groups = %#v, want %#v", groups, want)
+	}
+}
+
 func TestListFluxAModelGroupsMapsMissingCredentialAndExpiredUpstreamToken(t *testing.T) {
 	service, user := newFluxAModelGroupsServiceWithCredentialSites(t, "https://paid.example", "https://free.example", nil, nil)
 	_, err := service.ListFluxAModelGroups(context.Background(), user.ID, FluxASiteFree)

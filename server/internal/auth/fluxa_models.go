@@ -228,6 +228,26 @@ func parseFluxAModels(data json.RawMessage) ([]fluxAUpstreamModel, error) {
 		}
 		return validateFluxAModels(items)
 	}
+	var grouped map[string]json.RawMessage
+	if err := json.Unmarshal(data, &grouped); err == nil {
+		items = make([]fluxAUpstreamModel, 0)
+		for group, rawItems := range grouped {
+			var values []string
+			if err := json.Unmarshal(rawItems, &values); err != nil {
+				continue
+			}
+			for _, value := range values {
+				value = strings.TrimSpace(value)
+				if value == "" {
+					continue
+				}
+				items = append(items, fluxAUpstreamModel{ID: value, Name: value, Group: json.RawMessage(strconv.Quote(group))})
+			}
+		}
+		if len(items) > 0 {
+			return validateFluxAModels(items)
+		}
+	}
 	var wrapped struct {
 		Models json.RawMessage `json:"models"`
 	}
