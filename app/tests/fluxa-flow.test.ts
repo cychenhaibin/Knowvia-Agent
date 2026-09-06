@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
+import type {signInWithGoogle} from '../lib/google-auth';
+
 import {getDictionary} from '../i18n/messages';
 import type {FluxASite, SessionPayload} from '../types/api';
 import {
@@ -11,6 +13,13 @@ import {
   canSubmit,
   credentialsAreEditable,
 } from '../modules/auth/fluxaFlow';
+
+test('Google sign-in adapter needs no caller-provided OAuth client ID', () => {
+  type GoogleSignInParameters = Parameters<typeof signInWithGoogle>;
+  type RequiresNoArguments = GoogleSignInParameters extends [] ? true : false;
+  const requiresNoArguments: RequiresNoArguments = true;
+  assert.equal(requiresNoArguments, true);
+});
 
 test('Chinese FluxA labels identify the service as the transit station', () => {
   const messages = getDictionary('zh-Hans');

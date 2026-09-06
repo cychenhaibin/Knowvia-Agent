@@ -17,6 +17,7 @@
   },
   "include": [
     "modules/auth/fluxaFlow.ts",
+    "lib/google-auth.ts",
     "i18n/messages.ts",
     "i18n/languages.ts",
     "tests/**/*.test.ts"

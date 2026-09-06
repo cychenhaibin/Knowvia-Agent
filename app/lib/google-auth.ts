@@ -8,7 +8,7 @@ type GoogleNativeAuthResult = {
 };
 
 type GoogleNativeAuthModule = {
-  signIn: (serverClientId: string) => Promise<GoogleNativeAuthResult>;
+  signIn: () => Promise<GoogleNativeAuthResult>;
   clearCredentialState: () => Promise<void>;
 };
 
@@ -22,14 +22,11 @@ function getGoogleAuthModule(): GoogleNativeAuthModule {
   return module;
 }
 
-export async function signInWithGoogle(serverClientId: string) {
+export async function signInWithGoogle() {
   if (Platform.OS !== 'android') {
     throw new Error('Google Sign-In is currently implemented for Android only');
   }
-  if (!serverClientId.trim()) {
-    throw new Error('Google Sign-In is not configured');
-  }
-  return getGoogleAuthModule().signIn(serverClientId.trim());
+  return getGoogleAuthModule().signIn();
 }
 
 export async function clearGoogleCredentialState() {

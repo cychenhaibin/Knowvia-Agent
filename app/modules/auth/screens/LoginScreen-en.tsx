@@ -20,8 +20,6 @@ const PROVIDER_LOGIN_URLS = {
   apple: 'https://appleid.apple.com/sign-in',
 } as const;
 
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ?? '';
-
 export default function LoginScreen() {
   const router = useRouter();
   const [googlePending, setGooglePending] = useState(false);
@@ -60,14 +58,9 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    if (!GOOGLE_WEB_CLIENT_ID) {
-      showTatos({ body: t('login.googleNotConfigured') });
-      return;
-    }
-
     try {
       setGooglePending(true);
-      const result = await signInWithGoogle(GOOGLE_WEB_CLIENT_ID);
+      const result = await signInWithGoogle();
       const payload = await api.loginWithGoogle(result.idToken);
       await useAuthStore.getState().setSession(payload);
       router.replace('/(tabs)/runs');

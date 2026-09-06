@@ -3,6 +3,7 @@ package com.anonymous.quickqueagent
 import android.app.Activity
 import android.net.Uri
 import android.os.CancellationSignal
+import org.json.JSONObject
 import androidx.core.content.ContextCompat
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CreateCredentialResponse
@@ -30,20 +31,21 @@ class QuickQueGoogleAuthModule(
   override fun getName(): String = "QuickQueGoogleAuth"
 
   @ReactMethod
-  fun signIn(serverClientId: String, promise: Promise) {
+  fun signIn(promise: Promise) {
     val activity = currentActivity
     if (activity == null) {
       promise.reject("GOOGLE_SIGN_IN_ACTIVITY_UNAVAILABLE", "Current activity is unavailable")
       return
     }
 
-    if (serverClientId.isBlank()) {
+    val serverClientId = googleWebClientId()
+    if (serverClientId == null) {
       promise.reject("GOOGLE_SIGN_IN_NOT_CONFIGURED", "Google Sign-In is not configured")
       return
     }
 
     val credentialManager = CredentialManager.create(activity)
-    val option = GetSignInWithGoogleOption.Builder(serverClientId.trim()).build()
+    val option = GetSignInWithGoogleOption.Builder(serverClientId).build()
     val request = GetCredentialRequest.Builder()
       .addCredentialOption(option)
       .build()
@@ -63,6 +65,18 @@ class QuickQueGoogleAuthModule(
         }
       }
     )
+  }
+
+  private fun googleWebClientId(): String? {
+    return try {
+      val config = reactApplicationContext.resources
+        .openRawResource(R.raw.google_auth_config)
+        .bufferedReader()
+        .use { it.readText() }
+      JSONObject(config).optString("web_client_id").trim().takeIf { it.isNotEmpty() }
+    } catch (_: Exception) {
+      null
+    }
   }
 
   @ReactMethod
