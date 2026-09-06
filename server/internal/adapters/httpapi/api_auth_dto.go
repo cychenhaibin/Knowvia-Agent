@@ -12,6 +12,7 @@ type authUserDTO struct {
 	Email       string          `json:"email,omitempty"`
 	AvatarURL   string          `json:"avatarUrl,omitempty"`
 	FluxASite   *auth.FluxASite `json:"fluxaSite,omitempty"`
+	FluxAGroup  string          `json:"fluxaGroup,omitempty"`
 }
 
 type sessionDTO struct {
@@ -34,6 +35,7 @@ func mapAuthUser(user domain.User) authUserDTO {
 func mapSession(tokens auth.TokenPair) sessionDTO {
 	user := mapAuthUser(tokens.User)
 	user.FluxASite = tokens.FluxASite
+	user.FluxAGroup = tokens.FluxAGroup
 
 	return sessionDTO{
 		User:         user,

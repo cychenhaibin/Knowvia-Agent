@@ -17,6 +17,7 @@ export interface User {
   email?: string;
   avatarUrl?: string;
   fluxaSite?: FluxASite;
+  fluxaGroup?: string;
 }
 
 export type ChatModelPurpose = 'general' | 'knowledge';

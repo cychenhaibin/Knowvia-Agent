@@ -37,6 +37,7 @@ type VerifiedFluxAIdentity struct {
 	DisplayName string
 	Email       string
 	AvatarURL   string
+	Group       string
 }
 
 type fluxAIdentityVerifier struct {
@@ -62,6 +63,7 @@ type fluxAIdentityData struct {
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email"`
 	AvatarURL   string `json:"avatar_url"`
+	Group       string `json:"group"`
 }
 
 type fluxACredentialResponse struct {
@@ -169,6 +171,7 @@ func (v *fluxAIdentityVerifier) Verify(ctx context.Context, site FluxASite, acce
 		DisplayName: strings.TrimSpace(payload.Data.DisplayName),
 		Email:       strings.TrimSpace(payload.Data.Email),
 		AvatarURL:   strings.TrimSpace(payload.Data.AvatarURL),
+		Group:       strings.TrimSpace(payload.Data.Group),
 	}
 	if payload.Data.ID <= 0 || identity.Username == "" {
 		return VerifiedFluxAIdentity{}, ErrFluxAInvalidToken
@@ -274,29 +277,33 @@ func fluxAProvider(site FluxASite) (domain.AuthProvider, error) {
 }
 
 func (s *Service) LoginWithFluxA(ctx context.Context, site FluxASite, accessToken string) (TokenPair, error) {
-	user, err := s.resolveFluxAUser(ctx, site, accessToken)
+	user, identity, err := s.resolveFluxAUser(ctx, site, accessToken)
 	if err != nil {
 		return TokenPair{}, err
 	}
-	return s.issueSession(ctx, user)
+	tokens, err := s.issueSession(ctx, user)
+	if err == nil {
+		tokens.FluxAGroup = identity.Group
+	}
+	return tokens, err
 }
 
-func (s *Service) resolveFluxAUser(ctx context.Context, site FluxASite, accessToken string) (domain.User, error) {
+func (s *Service) resolveFluxAUser(ctx context.Context, site FluxASite, accessToken string) (domain.User, VerifiedFluxAIdentity, error) {
 	provider, err := fluxAProvider(site)
 	if err != nil {
-		return domain.User{}, err
+		return domain.User{}, VerifiedFluxAIdentity{}, err
 	}
 	if s.fluxAVerifier == nil {
-		return domain.User{}, ErrFluxAUnavailable
+		return domain.User{}, VerifiedFluxAIdentity{}, ErrFluxAUnavailable
 	}
 
 	identity, err := s.fluxAVerifier.Verify(ctx, site, accessToken)
 	if err != nil {
-		return domain.User{}, err
+		return domain.User{}, VerifiedFluxAIdentity{}, err
 	}
 	identity, err = normalizeFluxAIdentity(identity)
 	if err != nil {
-		return domain.User{}, err
+		return domain.User{}, VerifiedFluxAIdentity{}, err
 	}
 
 	user, err := s.userStore.GetUserByAuthIdentity(ctx, provider, identity.Subject)
@@ -308,10 +315,10 @@ func (s *Service) resolveFluxAUser(ctx context.Context, site FluxASite, accessTo
 			UsernameBase: "fluxa-" + string(site) + "-" + identity.Subject,
 		})
 		if err != nil {
-			return domain.User{}, err
+			return domain.User{}, VerifiedFluxAIdentity{}, err
 		}
 	default:
-		return domain.User{}, err
+		return domain.User{}, VerifiedFluxAIdentity{}, err
 	}
 
 	displayName := identity.DisplayName
@@ -330,7 +337,7 @@ func (s *Service) resolveFluxAUser(ctx context.Context, site FluxASite, accessTo
 	}
 	if updated != user {
 		if err := s.userStore.UpsertUser(ctx, updated); err != nil {
-			return domain.User{}, err
+			return domain.User{}, VerifiedFluxAIdentity{}, err
 		}
 		user = updated
 	}
@@ -347,10 +354,10 @@ func (s *Service) resolveFluxAUser(ctx context.Context, site FluxASite, accessTo
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}); err != nil {
-		return domain.User{}, err
+		return domain.User{}, VerifiedFluxAIdentity{}, err
 	}
 
-	return user, nil
+	return user, identity, nil
 }
 
 func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite, username, password string) (TokenPair, error) {
@@ -367,7 +374,7 @@ func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite,
 	if err != nil {
 		return TokenPair{}, err
 	}
-	user, err := s.resolveFluxAUser(ctx, site, accessToken)
+	user, identity, err := s.resolveFluxAUser(ctx, site, accessToken)
 	if err != nil {
 		return TokenPair{}, err
 	}
@@ -390,6 +397,7 @@ func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite,
 		return TokenPair{}, err
 	}
 	tokens.FluxASite = &site
+	tokens.FluxAGroup = identity.Group
 	return tokens, nil
 }
 

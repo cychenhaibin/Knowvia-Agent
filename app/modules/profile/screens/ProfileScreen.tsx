@@ -430,16 +430,16 @@ export default function ProfileScreen() {
                 style={{fontSize: fontSizes.lg, fontWeight: '600', color: colors.textPrimary}}>
                 {user?.displayName}
               </Text>
-              {user?.fluxaSite ? (
+              {user?.fluxaGroup ? (
                 <View className="rounded-full bg-blue-500/15 px-2 py-1">
                   <Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>
-                    {user.fluxaSite === 'paid' ? 'FluxA 付费版' : 'FluxA 公益站'}
+                    {user.fluxaGroup}
                   </Text>
                 </View>
               ) : null}
             </View>
             <Text style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>
-              {user?.username}
+              @{user?.username}
             </Text>
           </View>
 
