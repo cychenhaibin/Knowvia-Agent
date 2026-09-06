@@ -132,6 +132,16 @@ test('FluxA model group cards use the unique token identifier as their React key
   assert.doesNotMatch(screen, /FluxAModelGroupSection key=\{group\.name\}/);
 });
 
+test('FluxA service details switch between configuration and account groups without credential fields', () => {
+  const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
+
+  assert.match(screen, /useState<FluxAServiceTab>\('groups'\)/);
+  assert.match(screen, /fluxaModelGroups\.groups/);
+  assert.match(screen, /fluxaModelGroups\.models/);
+  assert.match(screen, /fluxaModelGroups\.serviceDescription/);
+  assert.doesNotMatch(screen, /API Key|API代理地址|连通性检查/);
+});
+
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
