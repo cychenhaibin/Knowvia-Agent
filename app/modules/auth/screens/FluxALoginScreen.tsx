@@ -54,7 +54,6 @@ export default function FluxALoginScreen() {
         {site, username, password},
         {
           loginWithFluxA: api.loginWithFluxA,
-          exchangeFluxASession: api.exchangeFluxASession,
           persistSession: (payload) => useAuthStore.getState().setSession(payload),
         },
       );

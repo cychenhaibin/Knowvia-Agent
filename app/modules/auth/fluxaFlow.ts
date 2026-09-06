@@ -1,28 +1,9 @@
+import type {SessionPayload} from '@/types/api';
+
 export type FluxASite = 'paid' | 'free';
 
-export const FLUXA_SITE_ORIGINS: Record<FluxASite, string> = {
-  paid: 'https://fluxa.camila.qzz.io',
-  free: 'https://free.camila.qzz.io',
-};
-
-export function resolveFluxASiteOrigin(site: unknown): string {
-  if (site === 'paid' || site === 'free') {
-    return FLUXA_SITE_ORIGINS[site];
-  }
-  throw new Error('Unsupported FluxA site');
-}
-
-export type FluxALoginResponse = {
-  accessToken?: string;
-  require2FA?: boolean;
-};
-
-export type FluxASession = {
-  user: {id: string; username: string; displayName: string; email?: string; avatarUrl?: string};
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-};
+export const FLUXA_2FA_REQUIRED_BACKEND_MESSAGE =
+  'complete two-factor authentication on the selected FluxA site';
 
 export class FluxA2FARequiredError extends Error {
   constructor() {
@@ -36,9 +17,8 @@ export type FluxALoginDependencies = {
     site: FluxASite,
     username: string,
     password: string,
-  ) => Promise<FluxALoginResponse>;
-  exchangeFluxASession: (site: FluxASite, accessToken: string) => Promise<FluxASession>;
-  persistSession: (session: FluxASession) => Promise<void>;
+  ) => Promise<SessionPayload>;
+  persistSession: (session: SessionPayload) => Promise<void>;
 };
 
 export function canSubmit(
@@ -64,20 +44,12 @@ export function nextPasswordAfterSiteChange(
 export async function loginThroughFluxA(
   input: {site: FluxASite; username: string; password: string},
   dependencies: FluxALoginDependencies,
-): Promise<FluxASession> {
-  const login = await dependencies.loginWithFluxA(
+): Promise<SessionPayload> {
+  const session = await dependencies.loginWithFluxA(
     input.site,
     input.username.trim(),
     input.password,
   );
-  if (login.require2FA) {
-    throw new FluxA2FARequiredError();
-  }
-  if (!login.accessToken) {
-    throw new Error('FluxA verification failed');
-  }
-
-  const session = await dependencies.exchangeFluxASession(input.site, login.accessToken);
   await dependencies.persistSession(session);
   return session;
 }

@@ -3,13 +3,15 @@ import {Platform} from 'react-native';
 import EventSource from 'react-native-sse';
 
 import {useAuthStore} from '@/store/auth';
-import {FLUXA_SITE_ORIGINS, resolveFluxASiteOrigin} from '@/modules/auth/fluxaFlow';
+import {
+  FluxA2FARequiredError,
+  FLUXA_2FA_REQUIRED_BACKEND_MESSAGE,
+} from '@/modules/auth/fluxaFlow';
 import type {
   ChatSkill,
   ChatSession,
   ChatModelPurpose,
   ChatStreamEvent,
-  FluxALoginResult,
   FluxASite,
   KnowledgeConnection,
   KnowledgeConnectionDetails,
@@ -161,67 +163,6 @@ function getRequestBaseUrls(): string[] {
 
 const API_BASE_URL_CANDIDATES = getRequestBaseUrls();
 
-export {FLUXA_SITE_ORIGINS, resolveFluxASiteOrigin};
-
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as UnknownRecord
-    : null;
-}
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized || undefined;
-}
-
-function parseFluxAUser(value: unknown): FluxALoginResult['user'] | undefined {
-  const user = asRecord(value);
-  const id = user?.id;
-  const username = asNonEmptyString(user?.username);
-
-  if (!user || typeof id !== 'number' || !Number.isFinite(id) || !username) {
-    return undefined;
-  }
-
-  const displayName = asNonEmptyString(user.display_name) ?? asNonEmptyString(user.displayName);
-  const email = asNonEmptyString(user.email);
-
-  return {
-    id,
-    username,
-    ...(displayName ? {displayName} : {}),
-    ...(email ? {email} : {}),
-  };
-}
-
-export function parseFluxALoginResponse(payload: unknown): FluxALoginResult {
-  const response = asRecord(payload);
-  const data = asRecord(response?.data);
-  const message = asNonEmptyString(response?.message);
-  const user = parseFluxAUser(data?.user);
-  const result = {
-    ...(message ? {message} : {}),
-    ...(user ? {user} : {}),
-  };
-
-  if (data?.require_2fa === true) {
-    return {...result, require2FA: true};
-  }
-
-  const accessToken = asNonEmptyString(data?.access_token);
-  if (response?.success !== true || !accessToken) {
-    return result;
-  }
-
-  return {...result, accessToken};
-}
-
 async function readErrorMessage(response: Response): Promise<string> {
   const contentType = response.headers.get('content-type') ?? '';
 
@@ -323,31 +264,18 @@ export const api = {
       body: JSON.stringify({username, password}),
     }),
   loginWithFluxA: async (site: FluxASite, username: string, password: string) => {
-    const origin = resolveFluxASiteOrigin(site);
-    const response = await fetch(`${origin}/api/user/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({username, password}),
-    });
-    const result = parseFluxALoginResponse(await response.json().catch(() => null));
-
-    if (result.require2FA) {
-      return result;
+    try {
+      return await request<SessionPayload>('/auth/fluxa', {
+        method: 'POST',
+        body: JSON.stringify({site, username, password}),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === FLUXA_2FA_REQUIRED_BACKEND_MESSAGE) {
+        throw new FluxA2FARequiredError();
+      }
+      throw error;
     }
-
-    if (!response.ok || !result.accessToken) {
-      throw new Error(result.message ?? 'FluxA login failed');
-    }
-
-    return result;
   },
-  exchangeFluxASession: (site: FluxASite, accessToken: string) =>
-    request<SessionPayload>('/auth/fluxa', {
-      method: 'POST',
-      body: JSON.stringify({site, accessToken}),
-    }),
   loginWithGoogle: (idToken: string) =>
     request<SessionPayload>('/auth/google', {
       method: 'POST',

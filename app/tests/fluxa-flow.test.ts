@@ -3,13 +3,13 @@ import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
 import {getDictionary} from '../i18n/messages';
+import type {FluxASite, SessionPayload} from '../types/api';
 import {
   FluxA2FARequiredError,
   loginThroughFluxA,
   nextPasswordAfterSiteChange,
   canSubmit,
   credentialsAreEditable,
-  resolveFluxASiteOrigin,
 } from '../modules/auth/fluxaFlow';
 
 test('Chinese FluxA labels identify the service as the transit station', () => {
@@ -42,24 +42,18 @@ test('switching FluxA sites clears the password while keeping same-site edits', 
   assert.equal(nextPasswordAfterSiteChange('paid', 'paid'), null);
 });
 
-test('paid and free logins resolve to their independent FluxA origins', () => {
-  assert.equal(resolveFluxASiteOrigin('paid'), 'https://fluxa.camila.qzz.io');
-  assert.equal(resolveFluxASiteOrigin('free'), 'https://free.camila.qzz.io');
-  assert.throws(() => resolveFluxASiteOrigin('https://attacker.example'), /Unsupported FluxA site/);
-});
-
-test('FluxA login routes paid and free origins, exchanges the upstream token, and persists only the Knowvia session', async () => {
+test('single backend FluxA login trims credentials, persists the Knowvia session, and has no upstream exchange', async () => {
   const calls: string[] = [];
   const saved: unknown[] = [];
   const result = await loginThroughFluxA(
     {site: 'free', username: ' user ', password: 'secret'},
     {
-      loginWithFluxA: async (site, username, password) => {
+      loginWithFluxA: async (
+        site: FluxASite,
+        username: string,
+        password: string,
+      ): Promise<SessionPayload> => {
         calls.push(`login:${site}:${username}:${password}`);
-        return {accessToken: 'upstream-token'};
-      },
-      exchangeFluxASession: async (site, accessToken) => {
-        calls.push(`exchange:${site}:${accessToken}`);
         return {
           accessToken: 'knowvia-access',
           refreshToken: 'knowvia-refresh',
@@ -67,36 +61,31 @@ test('FluxA login routes paid and free origins, exchanges the upstream token, an
           user: {id: '1', username: 'fluxa-free-42', displayName: 'FluxA User'},
         };
       },
-      persistSession: async (session) => {
+      persistSession: async (session: SessionPayload) => {
         saved.push(session);
       },
     },
   );
 
-  assert.deepEqual(calls, [
-    'login:free:user:secret',
-    'exchange:free:upstream-token',
-  ]);
+  assert.deepEqual(calls, ['login:free:user:secret']);
+  assert.equal(JSON.stringify(calls).includes('origin'), false);
+  assert.equal(JSON.stringify(calls).includes('accessToken'), false);
+  assert.equal(JSON.stringify(calls).includes('exchange'), false);
   assert.deepEqual(result.user, {id: '1', username: 'fluxa-free-42', displayName: 'FluxA User'});
   assert.deepEqual(saved, [result]);
-  assert.equal(JSON.stringify(saved).includes('upstream-token'), false);
 });
 
-test('FluxA 2FA responses produce a user-facing typed error before exchange', async () => {
-  let exchanged = false;
+test('FluxA 2FA errors from the safe backend response propagate to the UI', async () => {
   await assert.rejects(
     loginThroughFluxA(
       {site: 'paid', username: 'user', password: 'secret'},
       {
-        loginWithFluxA: async () => ({require2FA: true}),
-        exchangeFluxASession: async () => {
-          exchanged = true;
-          throw new Error('must not exchange');
+        loginWithFluxA: async () => {
+          throw new FluxA2FARequiredError();
         },
         persistSession: async () => undefined,
       },
     ),
     (error: unknown) => error instanceof FluxA2FARequiredError,
   );
-  assert.equal(exchanged, false);
 });
