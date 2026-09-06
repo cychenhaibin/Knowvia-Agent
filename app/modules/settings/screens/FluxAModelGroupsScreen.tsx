@@ -36,7 +36,7 @@ function FluxAModelGroupSection({group}: {group: FluxAModelGroup}) {
         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
       </View>
       <View className="mt-2 flex-row items-center gap-2">
-        <Text className="flex-1" style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>
+        <Text style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>
           {group.desc || ' '}
         </Text>
         <View className="rounded-full px-2 py-1" style={{backgroundColor: colors.brand + '22'}}>

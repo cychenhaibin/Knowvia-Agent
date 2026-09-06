@@ -425,10 +425,19 @@ export default function ProfileScreen() {
               style={{fontSize: fontSizes.xs, color: colors.textTertiary}}>
               {t('profile.user')}
             </Text>
-            <Text
-              style={{fontSize: fontSizes.lg, fontWeight: '600', color: colors.textPrimary}}>
-              {user?.displayName}
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text
+                style={{fontSize: fontSizes.lg, fontWeight: '600', color: colors.textPrimary}}>
+                {user?.displayName}
+              </Text>
+              {user?.fluxaSite ? (
+                <View className="rounded-full bg-blue-500/15 px-2 py-1">
+                  <Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>
+                    {user.fluxaSite === 'paid' ? 'FluxA 付费版' : 'FluxA 公益站'}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>
               {user?.username}
             </Text>
