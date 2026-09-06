@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -105,6 +106,28 @@ func (s *Service) ListFluxAModelGroups(ctx context.Context, userID string, site 
 	return s.fluxAModels.List(ctx, site, accessToken)
 }
 
+func (s *Service) ListFluxAModels(ctx context.Context, userID string, site FluxASite, group string) ([]FluxAModel, error) {
+	if _, err := fluxAProvider(site); err != nil || strings.TrimSpace(userID) == "" || s.fluxACredentials == nil || s.fluxACipher == nil || s.fluxAModels == nil {
+		return nil, ErrFluxAUnavailable
+	}
+	credential, err := s.fluxACredentials.GetFluxACredential(ctx, userID, site)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return nil, ErrFluxANotConnected
+	}
+	if err != nil || credential.UserID != userID || credential.Site != site || strings.TrimSpace(credential.TokenCiphertext) == "" {
+		return nil, ErrFluxAUnavailable
+	}
+	accessToken, err := s.fluxACipher.Decrypt(credential.TokenCiphertext, fluxACredentialAdditionalData(userID, site))
+	if err != nil || strings.TrimSpace(accessToken) == "" {
+		return nil, ErrFluxAUnavailable
+	}
+	fetcher, ok := s.fluxAModels.(FluxAModelsFetcher)
+	if !ok {
+		return nil, ErrFluxAUnavailable
+	}
+	return fetcher.Models(ctx, site, accessToken, group)
+}
+
 func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, accessToken string) ([]FluxAModelGroup, error) {
 	origin, err := fluxAOrigin(site, f.paidOrigin, f.freeOrigin)
 	if err != nil || f.httpClient == nil {
@@ -133,6 +156,28 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 		return nil, ErrFluxAUnavailable
 	}
 	return mergeFluxATokensWithGroups(tokens, groups), nil
+}
+
+func (f *fluxAModelGroupsFetcher) Models(ctx context.Context, site FluxASite, accessToken, group string) ([]FluxAModel, error) {
+	origin, err := fluxAOrigin(site, f.paidOrigin, f.freeOrigin)
+	if err != nil || f.httpClient == nil || strings.TrimSpace(group) == "" {
+		return nil, ErrFluxAUnavailable
+	}
+	payload, err := f.get(ctx, origin, "/api/user/models?group="+url.QueryEscape(strings.TrimSpace(group)), accessToken)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	if err := json.Unmarshal(payload, &names); err != nil {
+		return nil, ErrFluxAUnavailable
+	}
+	models := make([]FluxAModel, 0, len(names))
+	for _, name := range names {
+		if name = strings.TrimSpace(name); name != "" {
+			models = append(models, FluxAModel{ID: name, Name: name})
+		}
+	}
+	return models, nil
 }
 
 func parseFluxATokens(data json.RawMessage) ([]fluxAToken, error) {

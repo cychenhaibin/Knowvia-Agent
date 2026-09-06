@@ -128,6 +128,30 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 	}
 }
 
+func TestListFluxAModelsUsesGroupQueryAndNormalizesNames(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/user/models" || r.URL.Query().Get("group") != "gpt 专用" {
+			t.Fatalf("request = %s?%s, want group query", r.URL.Path, r.URL.RawQuery)
+		}
+		if r.Header.Get("Authorization") != "Bearer upstream-token" {
+			t.Fatalf("authorization = %q", r.Header.Get("Authorization"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":["gpt-4o"," ","claude-3-5-sonnet"]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	service, user := newFluxAModelGroupsService(t, server.URL, server.URL, server.Client())
+	models, err := service.ListFluxAModels(context.Background(), user.ID, FluxASitePaid, "gpt 专用")
+	if err != nil {
+		t.Fatalf("list models: %v", err)
+	}
+	want := []FluxAModel{{ID: "gpt-4o", Name: "gpt-4o"}, {ID: "claude-3-5-sonnet", Name: "claude-3-5-sonnet"}}
+	if !reflect.DeepEqual(models, want) {
+		t.Fatalf("models = %#v, want %#v", models, want)
+	}
+}
+
 func TestListFluxAModelGroupsAcceptsSingleAccountGroupString(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

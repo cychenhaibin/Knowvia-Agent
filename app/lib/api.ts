@@ -214,6 +214,8 @@ export const api = {
   me: (token: string) => request<User>('/me', {}, token),
   listFluxAModelGroups: (token: string) =>
     request<FluxAModelGroup[]>('/fluxa/model-groups', {}, token),
+  listFluxAModels: (token: string, group: string) =>
+    request<Array<{id: string; name: string}>>(`/fluxa/models?group=${encodeURIComponent(group)}`, {}, token),
   listChatModels: async (token: string) =>
     normalizeChatModelGroups(await request<UserChatModelGroups>('/chat-models', {}, token)),
   createChatModel: (

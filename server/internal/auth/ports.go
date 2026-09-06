@@ -49,6 +49,10 @@ type FluxAModelGroupsFetcher interface {
 	List(context.Context, FluxASite, string) ([]FluxAModelGroup, error)
 }
 
+type FluxAModelsFetcher interface {
+	Models(context.Context, FluxASite, string, string) ([]FluxAModel, error)
+}
+
 type ServiceDeps struct {
 	Users              UserStore
 	Identities         AuthIdentityStore

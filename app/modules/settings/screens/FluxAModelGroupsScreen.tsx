@@ -69,7 +69,19 @@ export default function FluxAModelGroupsScreen() {
     enabled: Boolean(accessToken && user?.id && user?.fluxaSite),
   });
   const groups = modelGroupsQuery.data ?? [];
-  const models = groups.flatMap((group) => (group.models ?? []).map((model) => ({id: `${group.id}:${model.id}`, name: model.name, group: group.group})));
+  const groupNames = [...new Set(groups.map((group) => group.group).filter(Boolean))];
+  const modelsQuery = useQuery({
+    queryKey: ['fluxa-models', user?.id, user?.fluxaSite, groupNames.join('|')],
+    queryFn: async () => {
+      const entries = await Promise.all(groupNames.map(async (group) => ({
+        group,
+        models: await api.listFluxAModels(accessToken!, group),
+      })));
+      return entries.flatMap((entry) => entry.models.map((model) => ({...model, group: entry.group})));
+    },
+    enabled: activeTab === 'models' && Boolean(accessToken && user?.id && user?.fluxaSite && groupNames.length),
+  });
+  const models = modelsQuery.data ?? [];
 
   return (
     <SafeAreaView className="flex-1" style={{backgroundColor: colors.background}} edges={['top', 'bottom', 'left', 'right']}>
@@ -115,8 +127,8 @@ export default function FluxAModelGroupsScreen() {
           </View>
         ) : (
           <View className="gap-3">
-            <Text style={{fontSize: fontSizes.sm, lineHeight: 22, color: colors.textSecondary}}>{t('fluxaModelGroups.modelsDescription')}</Text>
-            {models.length === 0 ? <Text style={{fontSize: fontSizes.sm, color: colors.textMuted}}>{t('fluxaModelGroups.modelsEmpty')}</Text> : models.map((model) => (
+            <Text style={{fontSize: fontSizes.sm, lineHeight: 18, color: colors.textSecondary}}>{t('fluxaModelGroups.modelsDescription')}</Text>
+            {modelsQuery.isLoading ? <View className="items-center py-12"><ActivityIndicator size="large" color={colors.brand} /></View> : modelsQuery.error ? <Text style={{fontSize: fontSizes.sm, color: colors.textMuted}}>{t('fluxaModelGroups.loadFailed')}</Text> : models.length === 0 ? <Text style={{fontSize: fontSizes.sm, color: colors.textMuted}}>{t('fluxaModelGroups.modelsEmpty')}</Text> : models.map((model) => (
               <View key={model.id} className="flex-row items-center justify-between rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
                 <Text className="flex-1 pr-3" style={{fontSize: fontSizes.md, fontWeight: '600', color: colors.textPrimary}}>{model.name}</Text>
                 <View className="rounded-full bg-blue-500/15 px-2 py-1"><Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{model.group || t('fluxaModelGroups.groups')}</Text></View>

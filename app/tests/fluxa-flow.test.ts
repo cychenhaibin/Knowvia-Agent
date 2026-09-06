@@ -151,10 +151,11 @@ test('FluxA service details switch between configuration and account groups with
   assert.doesNotMatch(screen, /API Key|API代理地址|连通性检查/);
 });
 
-test('FluxA model aggregation tolerates groups without a models array', () => {
+test('FluxA model tab loads models through the group endpoint', () => {
   const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
 
-  assert.match(screen, /group\.models\s*\?\?\s*\[\]/);
+  assert.match(screen, /api\.listFluxAModels\(accessToken!, group\)/);
+  assert.match(screen, /activeTab === 'models'/);
 });
 
 test('model group API sends only the Knowvia bearer token', async () => {
@@ -189,7 +190,26 @@ test('model group API sends only the Knowvia bearer token', async () => {
   assert.equal(fetchCall.headers.get('Authorization'), 'Bearer knowvia-token');
 });
 
-function loadApiForTest(): Pick<typeof ApiClient, 'listFluxAModelGroups'> {
+test('model API encodes the selected FluxA group', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  let requestedUrl = '';
+  process.env.EXPO_PUBLIC_API_BASE_URL = 'https://knowvia.example/v1';
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response('[]', {status: 200, headers: {'Content-Type': 'application/json'}});
+  };
+  try {
+    await loadApiForTest().listFluxAModels('knowvia-token', 'gpt 专用');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) delete process.env.EXPO_PUBLIC_API_BASE_URL;
+    else process.env.EXPO_PUBLIC_API_BASE_URL = originalBaseUrl;
+  }
+  assert.equal(requestedUrl, 'https://knowvia.example/v1/fluxa/models?group=gpt%20%E4%B8%93%E7%94%A8');
+});
+
+function loadApiForTest(): Pick<typeof ApiClient, 'listFluxAModelGroups' | 'listFluxAModels'> {
   const loader = Module as unknown as {
     _load: (request: string, parent: unknown, isMain: boolean) => unknown;
   };
