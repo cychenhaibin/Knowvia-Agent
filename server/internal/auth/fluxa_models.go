@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -116,33 +117,48 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 func (f *fluxAModelGroupsFetcher) get(ctx context.Context, origin, path, accessToken string) (json.RawMessage, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, origin+path, nil)
 	if err != nil {
+		logFluxAModelGroupsUpstreamFailure(path, 0, "request_error")
 		return nil, ErrFluxAUnavailable
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	resp, err := f.httpClient.Do(req)
 	if err != nil {
+		logFluxAModelGroupsUpstreamFailure(path, 0, "transport_error")
 		return nil, ErrFluxAUnavailable
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		logFluxAModelGroupsUpstreamFailure(path, resp.StatusCode, "reauthentication_required")
 		return nil, ErrFluxAReauthenticationRequired
 	}
 	if resp.StatusCode != http.StatusOK {
+		logFluxAModelGroupsUpstreamFailure(path, resp.StatusCode, "http_status")
 		return nil, ErrFluxAUnavailable
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFluxAModelsResponseBytes+1))
 	if err != nil || len(body) > maxFluxAModelsResponseBytes {
+		logFluxAModelGroupsUpstreamFailure(path, resp.StatusCode, "body_read_error")
 		return nil, ErrFluxAUnavailable
 	}
 	var envelope fluxAResponseEnvelope
 	if err := json.Unmarshal(body, &envelope); err != nil {
+		logFluxAModelGroupsUpstreamFailure(path, resp.StatusCode, "invalid_json")
 		return nil, ErrFluxAUnavailable
 	}
 	if !envelope.Success || len(envelope.Data) == 0 || string(envelope.Data) == "null" {
+		classification := "unsuccessful_envelope"
+		if envelope.Success {
+			classification = "empty_data"
+		}
+		logFluxAModelGroupsUpstreamFailure(path, resp.StatusCode, classification)
 		return nil, ErrFluxAUnavailable
 	}
 	return envelope.Data, nil
+}
+
+func logFluxAModelGroupsUpstreamFailure(path string, status int, classification string) {
+	log.Printf("fluxa_model_groups_upstream_failure route=%s status=%d classification=%s", path, status, classification)
 }
 
 func parseFluxAAccountGroups(data json.RawMessage) ([]string, error) {

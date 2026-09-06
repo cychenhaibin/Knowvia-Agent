@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -14,6 +16,36 @@ import (
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/store"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
 )
+
+func TestFluxAModelGroupsLogsSafeUpstreamFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/user/self" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"success":true,"data":{"group":"default"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`do-not-log-me`))
+	}))
+	t.Cleanup(server.Close)
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	service, user := newFluxAModelGroupsService(t, server.URL, server.URL, server.Client())
+	_, err := service.ListFluxAModelGroups(context.Background(), user.ID, FluxASitePaid)
+	if !errors.Is(err, ErrFluxAUnavailable) {
+		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
+	}
+	if !strings.Contains(logs.String(), "fluxa_model_groups_upstream_failure") || !strings.Contains(logs.String(), "route=/api/models") || !strings.Contains(logs.String(), "status=502") {
+		t.Fatalf("logs = %q, want safe route and status diagnostic", logs.String())
+	}
+	if strings.Contains(logs.String(), "upstream-token") || strings.Contains(logs.String(), "do-not-log-me") {
+		t.Fatalf("logs exposed secret material: %q", logs.String())
+	}
+}
 
 func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing.T) {
 	var mu sync.Mutex
