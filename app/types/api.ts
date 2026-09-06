@@ -54,6 +54,7 @@ export interface SessionPayload {
 export type FluxASite = 'paid' | 'free';
 
 export interface FluxAModelGroup {
+  id: string;
   name: string;
   group: string;
   desc?: string;

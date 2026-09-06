@@ -52,7 +52,7 @@ func TestFluxAModelGroupsLogsSafeParseFailure(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/token/":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"group":"default"}]}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"id":1,"group":"default"}]}}`))
 		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"model-a","name":42,"diagnostic":"do-not-log-me"}]}`))
 		}
@@ -97,7 +97,7 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 			if r.URL.Query().Get("p") != "1" || r.URL.Query().Get("size") != "20" {
 				t.Fatalf("unexpected token query: %s", r.URL.RawQuery)
 			}
-			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"name":"Research key","group":"research"},{"name":"Default key","group":"default"},{"name":"Research backup","group":"research"},{"name":"User key","group":""}]}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"id":1,"name":"Research key","group":"research"},{"id":2,"name":"Default key","group":"default"},{"id":3,"name":"Research key","group":"research"},{"id":4,"name":"User key","group":""}]}}`))
 		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"default":{"desc":"Default models","ratio":0.1},"research":{"desc":"Research models","ratio":0.3},"unused":{"desc":"Unused","ratio":1}}}`))
 		default:
@@ -112,10 +112,10 @@ func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing
 		t.Fatalf("list groups: %v", err)
 	}
 	want := []FluxAModelGroup{
-		{Name: "Research key", Group: "research", Desc: "Research models", Ratio: 0.3},
-		{Name: "Default key", Group: "default", Desc: "Default models", Ratio: 0.1},
-		{Name: "Research backup", Group: "research", Desc: "Research models", Ratio: 0.3},
-		{Name: "User key"},
+		{ID: "1", Name: "Research key", Group: "research", Desc: "Research models", Ratio: 0.3},
+		{ID: "2", Name: "Default key", Group: "default", Desc: "Default models", Ratio: 0.1},
+		{ID: "3", Name: "Research key", Group: "research", Desc: "Research models", Ratio: 0.3},
+		{ID: "4", Name: "User key"},
 	}
 	if !reflect.DeepEqual(groups, want) {
 		t.Fatalf("groups = %#v, want %#v", groups, want)
@@ -135,7 +135,7 @@ func TestListFluxAModelGroupsAcceptsSingleAccountGroupString(t *testing.T) {
 		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"groups":[{"name":"premium","models":[{"id":"model-a","name":"Model A"}]}]}}`))
 		case "/api/token/":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"name":"Premium key","group":"premium"}]}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"id":1,"name":"Premium key","group":"premium"}]}}`))
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -145,7 +145,7 @@ func TestListFluxAModelGroupsAcceptsSingleAccountGroupString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list groups: %v", err)
 	}
-	want := []FluxAModelGroup{{Name: "Premium key", Group: "premium", Models: []FluxAModel{{ID: "model-a", Name: "Model A"}}}}
+	want := []FluxAModelGroup{{ID: "1", Name: "Premium key", Group: "premium", Models: []FluxAModel{{ID: "model-a", Name: "Model A"}}}}
 	if !reflect.DeepEqual(groups, want) {
 		t.Fatalf("groups = %#v, want %#v", groups, want)
 	}
@@ -158,7 +158,7 @@ func TestListFluxAModelGroupsAcceptsGroupedModelMap(t *testing.T) {
 		case "/api/user/self/groups":
 			_, _ = w.Write([]byte(`{"success":true,"data":{"11":["gpt-4o"],"14":["claude-3"]}}`))
 		case "/api/token/":
-			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"name":"GPT key","group":"11"},{"name":"Claude key","group":"14"}]}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"id":1,"name":"GPT key","group":"11"},{"id":2,"name":"Claude key","group":"14"}]}}`))
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -168,8 +168,8 @@ func TestListFluxAModelGroupsAcceptsGroupedModelMap(t *testing.T) {
 		t.Fatalf("list groups: %v", err)
 	}
 	want := []FluxAModelGroup{
-		{Name: "GPT key", Group: "11", Models: []FluxAModel{{ID: "gpt-4o", Name: "gpt-4o"}}},
-		{Name: "Claude key", Group: "14", Models: []FluxAModel{{ID: "claude-3", Name: "claude-3"}}},
+		{ID: "1", Name: "GPT key", Group: "11", Models: []FluxAModel{{ID: "gpt-4o", Name: "gpt-4o"}}},
+		{ID: "2", Name: "Claude key", Group: "14", Models: []FluxAModel{{ID: "claude-3", Name: "claude-3"}}},
 	}
 	if !reflect.DeepEqual(groups, want) {
 		t.Fatalf("groups = %#v, want %#v", groups, want)
@@ -182,7 +182,7 @@ func TestListFluxAModelGroupsAcceptsGroupMetadataMap(t *testing.T) {
 		if r.URL.Path == "/api/user/self/groups" {
 			_, _ = w.Write([]byte(`{"success":true,"data":{"cc_max":{"desc":"claude code max分组","ratio":0.3},"公益组":{"desc":"","ratio":0.001}}}`))
 		} else if r.URL.Path == "/api/token/" {
-			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"name":"Comet","group":"cc_max"},{"name":"Test","group":"公益组"}]}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"items":[{"id":1,"name":"Comet","group":"cc_max"},{"id":2,"name":"Test","group":"公益组"}]}}`))
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -191,7 +191,7 @@ func TestListFluxAModelGroupsAcceptsGroupMetadataMap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list groups: %v", err)
 	}
-	want := []FluxAModelGroup{{Name: "Comet", Group: "cc_max", Desc: "claude code max分组", Ratio: 0.3}, {Name: "Test", Group: "公益组", Ratio: 0.001}}
+	want := []FluxAModelGroup{{ID: "1", Name: "Comet", Group: "cc_max", Desc: "claude code max分组", Ratio: 0.3}, {ID: "2", Name: "Test", Group: "公益组", Ratio: 0.001}}
 	if !reflect.DeepEqual(groups, want) {
 		t.Fatalf("groups = %#v, want %#v", groups, want)
 	}

@@ -22,6 +22,7 @@ type FluxAModel struct {
 }
 
 type FluxAModelGroup struct {
+	ID     string       `json:"id"`
 	Name   string       `json:"name"`
 	Group  string       `json:"group"`
 	Desc   string       `json:"desc,omitempty"`
@@ -54,12 +55,14 @@ type fluxAUpstreamModel struct {
 
 type fluxATokenList struct {
 	Items []struct {
+		ID    int64  `json:"id"`
 		Name  string `json:"name"`
 		Group string `json:"group"`
 	} `json:"items"`
 }
 
 type fluxAToken struct {
+	ID    string
 	Name  string
 	Group string
 }
@@ -143,7 +146,10 @@ func parseFluxATokens(data json.RawMessage) ([]fluxAToken, error) {
 		if name == "" {
 			continue
 		}
-		tokens = append(tokens, fluxAToken{Name: name, Group: strings.TrimSpace(item.Group)})
+		if item.ID <= 0 {
+			continue
+		}
+		tokens = append(tokens, fluxAToken{ID: strconv.FormatInt(item.ID, 10), Name: name, Group: strings.TrimSpace(item.Group)})
 	}
 	return tokens, nil
 }
@@ -157,6 +163,7 @@ func mergeFluxATokensWithGroups(tokens []fluxAToken, groups []FluxAModelGroup) [
 	for _, token := range tokens {
 		group := metadata[token.Group]
 		group.Name = token.Name
+		group.ID = token.ID
 		group.Group = token.Group
 		result = append(result, group)
 	}

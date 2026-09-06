@@ -125,6 +125,13 @@ test('FluxA model group cache is scoped to the signed-in account and site', () =
   assert.match(auth, /queryClient\.removeQueries\(\{queryKey:\s*\['fluxa-model-groups'\]\}\)/);
 });
 
+test('FluxA model group cards use the unique token identifier as their React key', () => {
+  const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
+
+  assert.match(screen, /FluxAModelGroupSection key=\{group\.id\}/);
+  assert.doesNotMatch(screen, /FluxAModelGroupSection key=\{group\.name\}/);
+});
+
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;

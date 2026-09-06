@@ -116,7 +116,7 @@ export default function FluxAModelGroupsScreen() {
                 {t('fluxaModelGroups.empty')}
               </Text>
             ) : (
-              groups.map((group) => <FluxAModelGroupSection key={group.name} group={group} />)
+              groups.map((group) => <FluxAModelGroupSection key={group.id} group={group} />)
             )}
           </View>
         </ScrollView>
