@@ -36,6 +36,9 @@ func mapSession(tokens auth.TokenPair) sessionDTO {
 	user := mapAuthUser(tokens.User)
 	user.FluxASite = tokens.FluxASite
 	user.FluxAGroup = tokens.FluxAGroup
+	if tokens.FluxAUsername != "" {
+		user.Username = tokens.FluxAUsername
+	}
 
 	return sessionDTO{
 		User:         user,

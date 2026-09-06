@@ -74,6 +74,7 @@ func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
 		Username:    "fluxa-user",
 		DisplayName: "FluxA User",
 		Email:       "user@example.com",
+		Group:       "gpt_td",
 	}}
 
 	rec := performFluxALogin(newFluxATestRouter(authenticator, verifier), `{"site":"  paid  ","username":"  fluxa-user  ","password":"  raw-password\t "}`)
@@ -85,7 +86,7 @@ func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode session payload: %v", err)
 	}
-	if payload.User.Email != "user@example.com" || payload.User.Username != "fluxa-paid-42" {
+	if payload.User.Email != "user@example.com" || payload.User.Username != "fluxa-user" || payload.User.FluxAGroup != "gpt_td" {
 		t.Fatalf("user = %#v, want paid FluxA user", payload.User)
 	}
 	if payload.User.FluxASite == nil || *payload.User.FluxASite != auth.FluxASitePaid {

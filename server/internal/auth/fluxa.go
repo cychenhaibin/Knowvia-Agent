@@ -284,6 +284,7 @@ func (s *Service) LoginWithFluxA(ctx context.Context, site FluxASite, accessToke
 	tokens, err := s.issueSession(ctx, user)
 	if err == nil {
 		tokens.FluxAGroup = identity.Group
+		tokens.FluxAUsername = identity.Username
 	}
 	return tokens, err
 }
@@ -398,6 +399,7 @@ func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite,
 	}
 	tokens.FluxASite = &site
 	tokens.FluxAGroup = identity.Group
+	tokens.FluxAUsername = identity.Username
 	return tokens, nil
 }
 
