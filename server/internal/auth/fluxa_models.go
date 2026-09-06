@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/persistence"
@@ -110,7 +111,7 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 	}
 	models, err := parseFluxAModels(modelPayload)
 	if err != nil {
-		log.Printf("fluxa_model_groups_parse_failure route=/api/models classification=models_payload_invalid")
+		log.Printf("fluxa_model_groups_parse_failure route=/api/models classification=models_payload_invalid shape=%s", jsonShapeSummary(modelPayload))
 		return nil, ErrFluxAUnavailable
 	}
 	return normalizeFluxAModelGroups(accountGroups, models), nil
@@ -161,6 +162,33 @@ func (f *fluxAModelGroupsFetcher) get(ctx context.Context, origin, path, accessT
 
 func logFluxAModelGroupsUpstreamFailure(path string, status int, classification string) {
 	log.Printf("fluxa_model_groups_upstream_failure route=%s status=%d classification=%s", path, status, classification)
+}
+
+func jsonShapeSummary(raw json.RawMessage) string {
+	var value any
+	if json.Unmarshal(raw, &value) != nil {
+		return "invalid"
+	}
+	switch typed := value.(type) {
+	case []any:
+		return "array:length=" + strconv.Itoa(len(typed))
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key, nested := range typed {
+			shape := "value"
+			switch nested.(type) {
+			case []any:
+				shape = "array"
+			case map[string]any:
+				shape = "object"
+			}
+			keys = append(keys, key+":"+shape)
+		}
+		sort.Strings(keys)
+		return "object:keys=" + strings.Join(keys, ",")
+	default:
+		return "scalar"
+	}
 }
 
 func parseFluxAAccountGroups(data json.RawMessage) ([]string, error) {
