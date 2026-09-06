@@ -2,17 +2,14 @@ import Constants from 'expo-constants';
 import {Platform} from 'react-native';
 import EventSource from 'react-native-sse';
 
+import {requestFromCandidates} from '@/lib/apiRequest';
+import {createFluxALogin} from '@/lib/fluxaApi';
 import {useAuthStore} from '@/store/auth';
-import {
-  FluxA2FARequiredError,
-  FLUXA_2FA_REQUIRED_BACKEND_MESSAGE,
-} from '@/modules/auth/fluxaFlow';
 import type {
   ChatSkill,
   ChatSession,
   ChatModelPurpose,
   ChatStreamEvent,
-  FluxASite,
   KnowledgeConnection,
   KnowledgeConnectionDetails,
   KnowledgeSyncJob,
@@ -162,71 +159,10 @@ function getRequestBaseUrls(): string[] {
 }
 
 const API_BASE_URL_CANDIDATES = getRequestBaseUrls();
-
-async function readErrorMessage(response: Response): Promise<string> {
-  const contentType = response.headers.get('content-type') ?? '';
-
-  if (contentType.includes('application/json')) {
-    const payload = await response
-      .json()
-      .catch(() => null) as
-      | {error?: unknown; message?: unknown; code?: unknown}
-      | null;
-    const apiMessage =
-      typeof payload?.error === 'string'
-        ? payload.error
-        : typeof payload?.message === 'string'
-          ? payload.message
-          : null;
-    if (apiMessage && apiMessage.trim()) {
-      return apiMessage;
-    }
-  }
-
-  const rawText = (await response.text().catch(() => '')).trim();
-  if (rawText) {
-    return rawText;
-  }
-
-  return `Request failed (${response.status})`;
-}
+const loginWithFluxA = createFluxALogin(API_BASE_URL);
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
-  const requestUrls = API_BASE_URL_CANDIDATES.map((baseUrl) => `${baseUrl}${path}`);
-  let response: Response | null = null;
-  let lastNetworkError: string | null = null;
-
-  for (const requestUrl of requestUrls) {
-    try {
-      response = await fetch(requestUrl, {
-        ...init,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? {Authorization: `Bearer ${token}`} : {}),
-          ...(init.headers ?? {}),
-        },
-      });
-      break;
-    } catch (error) {
-      lastNetworkError = error instanceof Error ? error.message : 'Unknown network error';
-    }
-  }
-
-  if (!response) {
-    throw new Error(
-      `Network error: ${lastNetworkError ?? 'Request failed'} (${requestUrls.join(' | ')})`,
-    );
-  }
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
+  return requestFromCandidates<T>(API_BASE_URL_CANDIDATES, path, init, token);
 }
 
 function defaultChatModelTemperature(purpose?: ChatModelPurpose): number {
@@ -263,19 +199,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({username, password}),
     }),
-  loginWithFluxA: async (site: FluxASite, username: string, password: string) => {
-    try {
-      return await request<SessionPayload>('/auth/fluxa', {
-        method: 'POST',
-        body: JSON.stringify({site, username, password}),
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === FLUXA_2FA_REQUIRED_BACKEND_MESSAGE) {
-        throw new FluxA2FARequiredError();
-      }
-      throw error;
-    }
-  },
+  loginWithFluxA,
   loginWithGoogle: (idToken: string) =>
     request<SessionPayload>('/auth/google', {
       method: 'POST',

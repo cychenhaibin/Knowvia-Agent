@@ -119,6 +119,12 @@ func (h *Handler) loginWithMicrosoft(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) loginWithFluxA(w http.ResponseWriter, r *http.Request) {
+	const (
+		maxFluxALoginBodyBytes = 16 << 10
+		maxFluxAUsernameBytes  = 256
+		maxFluxAPasswordBytes  = 4 << 10
+	)
+	r.Body = http.MaxBytesReader(w, r.Body, maxFluxALoginBodyBytes)
 	var req struct {
 		Site     string `json:"site"`
 		Username string `json:"username"`
@@ -145,8 +151,16 @@ func (h *Handler) loginWithFluxA(w http.ResponseWriter, r *http.Request) {
 		writeValidationError(w, "username is required", []string{"username"})
 		return
 	}
+	if len(req.Username) > maxFluxAUsernameBytes {
+		writeValidationError(w, "username is too long", []string{"username"})
+		return
+	}
 	if strings.TrimSpace(req.Password) == "" {
 		writeValidationError(w, "password is required", []string{"password"})
+		return
+	}
+	if len(req.Password) > maxFluxAPasswordBytes {
+		writeValidationError(w, "password is too long", []string{"password"})
 		return
 	}
 
@@ -159,6 +173,12 @@ func (h *Handler) loginWithFluxA(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeValidationError(w, "site must be paid or free", []string{"site"})
 		return
+	}
+	if h.fluxALoginLimiter != nil {
+		if allowed, retryAfter := h.fluxALoginLimiter.allow(fluxALoginKey(r, site, req.Username)); !allowed {
+			writeFluxALoginRateLimited(w, retryAfter)
+			return
+		}
 	}
 
 	tokens, err := h.authService.LoginWithFluxACredentials(r.Context(), site, req.Username, req.Password)

@@ -206,8 +206,7 @@ func (a *fluxACredentialAuthenticator) Login(ctx context.Context, site FluxASite
 	}
 
 	username = strings.TrimSpace(username)
-	password = strings.TrimSpace(password)
-	if username == "" || password == "" {
+	if username == "" || strings.TrimSpace(password) == "" {
 		return "", ErrFluxAInvalidCredentials
 	}
 
@@ -231,25 +230,26 @@ func (a *fluxACredentialAuthenticator) Login(ctx context.Context, site FluxASite
 	}
 	defer resp.Body.Close()
 
+	decoder := json.NewDecoder(io.LimitReader(resp.Body, 1<<20))
+	var payload fluxACredentialResponse
+	decodeErr := decoder.Decode(&payload)
+	trailingErr := decoder.Decode(&struct{}{})
+	validPayload := decodeErr == nil && errors.Is(trailingErr, io.EOF)
+	if validPayload && payload.Data.Require2FA {
+		return "", ErrFluxA2FARequired
+	}
+
 	switch resp.StatusCode {
 	case http.StatusOK:
+		if !validPayload {
+			return "", ErrFluxAUnavailable
+		}
 	case http.StatusUnauthorized, http.StatusForbidden:
 		return "", ErrFluxAInvalidCredentials
 	default:
 		return "", ErrFluxAUnavailable
 	}
 
-	decoder := json.NewDecoder(io.LimitReader(resp.Body, 1<<20))
-	var payload fluxACredentialResponse
-	if err := decoder.Decode(&payload); err != nil {
-		return "", ErrFluxAUnavailable
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return "", ErrFluxAUnavailable
-	}
-	if payload.Data.Require2FA {
-		return "", ErrFluxA2FARequired
-	}
 	if !payload.Success {
 		return "", ErrFluxAInvalidCredentials
 	}
@@ -350,7 +350,7 @@ func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite,
 	if s.fluxAAuthenticator == nil {
 		return TokenPair{}, ErrFluxAUnavailable
 	}
-	accessToken, err := s.fluxAAuthenticator.Login(ctx, site, strings.TrimSpace(username), strings.TrimSpace(password))
+	accessToken, err := s.fluxAAuthenticator.Login(ctx, site, strings.TrimSpace(username), password)
 	if err != nil {
 		return TokenPair{}, err
 	}

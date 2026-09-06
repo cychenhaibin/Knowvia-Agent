@@ -337,13 +337,15 @@ func TestFluxACredentialAuthenticatorPostsCredentialsToSelectedSite(t *testing.T
 
 	authenticator := newTestFluxACredentialAuthenticator(paidServer.URL, freeServer.URL, paidServer.Client())
 	for _, tt := range []struct {
-		site      FluxASite
-		username  string
-		password  string
-		wantToken string
+		site         FluxASite
+		username     string
+		password     string
+		wantUsername string
+		wantPassword string
+		wantToken    string
 	}{
-		{site: FluxASitePaid, username: "paid-user", password: "paid-password", wantToken: "paid-access-token"},
-		{site: FluxASiteFree, username: "free-user", password: "free-password", wantToken: "free-access-token"},
+		{site: FluxASitePaid, username: "  paid-user  ", password: "  paid-password\t ", wantUsername: "paid-user", wantPassword: "  paid-password\t ", wantToken: "paid-access-token"},
+		{site: FluxASiteFree, username: "free-user", password: "free-password", wantUsername: "free-user", wantPassword: "free-password", wantToken: "free-access-token"},
 	} {
 		t.Run(string(tt.site), func(t *testing.T) {
 			token, err := authenticator.Login(context.Background(), tt.site, tt.username, tt.password)
@@ -354,8 +356,8 @@ func TestFluxACredentialAuthenticatorPostsCredentialsToSelectedSite(t *testing.T
 				t.Fatalf("token = %q, want %q", token, tt.wantToken)
 			}
 			got := <-requests
-			if got.username != tt.username || got.password != tt.password {
-				t.Fatalf("request = %#v, want username/password %#v", got, request{username: tt.username, password: tt.password})
+			if got.username != tt.wantUsername || got.password != tt.wantPassword {
+				t.Fatalf("request = %#v, want username/password %#v", got, request{username: tt.wantUsername, password: tt.wantPassword})
 			}
 		})
 	}
@@ -372,6 +374,7 @@ func TestFluxACredentialAuthenticatorReturnsSafeErrors(t *testing.T) {
 		wantErr error
 	}{
 		{name: "two factor required", status: http.StatusOK, body: `{"success":true,"data":{"require_2fa":true}}`, wantErr: ErrFluxA2FARequired},
+		{name: "two factor required on unauthorized response", status: http.StatusUnauthorized, body: `{"success":false,"data":{"require_2fa":true}}`, wantErr: ErrFluxA2FARequired},
 		{name: "unauthorized", status: http.StatusUnauthorized, body: `{"success":false}`, wantErr: ErrFluxAInvalidCredentials},
 		{name: "empty access token", status: http.StatusOK, body: `{"success":true,"data":{"access_token":"   "}}`, wantErr: ErrFluxAInvalidCredentials},
 		{name: "unsuccessful payload", status: http.StatusOK, body: `{"success":false,"data":{"access_token":"` + token + `"}}`, wantErr: ErrFluxAInvalidCredentials},
@@ -462,7 +465,7 @@ func (a *staticFluxACredentialAuthenticator) Login(_ context.Context, site FluxA
 	return a.token, a.err
 }
 
-func TestLoginWithFluxACredentialsTrimsCredentialsOnceAndIssuesSession(t *testing.T) {
+func TestLoginWithFluxACredentialsTrimsOnlyUsernameAndDoesNotPersistCredentials(t *testing.T) {
 	mem := store.NewMemoryStore()
 	credentialAuthenticator := &staticFluxACredentialAuthenticator{token: "upstream-access-token"}
 	verifier := &staticFluxAVerifier{identity: VerifiedFluxAIdentity{Subject: "42", Username: "credential-user"}}
@@ -482,11 +485,18 @@ func TestLoginWithFluxACredentialsTrimsCredentialsOnceAndIssuesSession(t *testin
 	if tokens.User.ID == "" || tokens.AccessToken == "" || tokens.RefreshToken == "" {
 		t.Fatalf("expected issued session, got %#v", tokens)
 	}
-	if credentialAuthenticator.calls != 1 || credentialAuthenticator.site != FluxASitePaid || credentialAuthenticator.username != "credential-user" || credentialAuthenticator.password != "credential-password" {
-		t.Fatalf("authenticator call = (%d, %q, %q, %q), want (1, paid, credential-user, credential-password)", credentialAuthenticator.calls, credentialAuthenticator.site, credentialAuthenticator.username, credentialAuthenticator.password)
+	if credentialAuthenticator.calls != 1 || credentialAuthenticator.site != FluxASitePaid || credentialAuthenticator.username != "credential-user" || credentialAuthenticator.password != "  credential-password  " {
+		t.Fatalf("authenticator call = (%d, %q, %q, %q), want password preserved byte-for-byte", credentialAuthenticator.calls, credentialAuthenticator.site, credentialAuthenticator.username, credentialAuthenticator.password)
 	}
 	if verifier.calls != 1 || verifier.site != FluxASitePaid || verifier.token != "upstream-access-token" {
 		t.Fatalf("verifier call = (%d, %q, %q), want (1, paid, upstream-access-token)", verifier.calls, verifier.site, verifier.token)
+	}
+	storedUser, err := mem.GetUserByID(context.Background(), tokens.User.ID)
+	if err != nil {
+		t.Fatalf("get stored user: %v", err)
+	}
+	if storedUser.PasswordHash != "" {
+		t.Fatalf("FluxA user persisted credential material in password hash: %q", storedUser.PasswordHash)
 	}
 }
 

@@ -42,11 +42,11 @@ test('switching FluxA sites clears the password while keeping same-site edits', 
   assert.equal(nextPasswordAfterSiteChange('paid', 'paid'), null);
 });
 
-test('single backend FluxA login trims credentials, persists the Knowvia session, and has no upstream exchange', async () => {
+test('single backend FluxA login trims only the username and preserves password bytes', async () => {
   const calls: string[] = [];
   const saved: unknown[] = [];
   const result = await loginThroughFluxA(
-    {site: 'free', username: ' user ', password: ' secret '},
+    {site: 'free', username: ' user ', password: ' secret\t '},
     {
       loginWithFluxA: async (
         site: FluxASite,
@@ -67,7 +67,7 @@ test('single backend FluxA login trims credentials, persists the Knowvia session
     },
   );
 
-  assert.deepEqual(calls, ['login:free:user:secret']);
+  assert.deepEqual(calls, ['login:free:user: secret\t ']);
   assert.equal(JSON.stringify(calls).includes('origin'), false);
   assert.equal(JSON.stringify(calls).includes('accessToken'), false);
   assert.equal(JSON.stringify(calls).includes('exchange'), false);

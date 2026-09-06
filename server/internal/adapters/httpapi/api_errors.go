@@ -21,6 +21,7 @@ const (
 	errorCodeValidationFailed   = "validation_failed"
 	errorCodeInternalError      = "internal_error"
 	errorCodeServiceUnavailable = "service_unavailable"
+	errorCodeRateLimited        = "rate_limited"
 )
 
 func writeAPIError(w http.ResponseWriter, status int, code, message, field string, details map[string]any) {

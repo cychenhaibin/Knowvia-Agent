@@ -14,12 +14,13 @@ import (
 )
 
 type Handler struct {
-	authService      *auth.Service
-	runService       *run.Service
-	knowledgeService *knowledge.Service
-	chatService      *chat.Service
-	skillService     *skillsvc.Service
-	skillImporter    *skillsvc.ImportService
+	authService       *auth.Service
+	runService        *run.Service
+	knowledgeService  *knowledge.Service
+	chatService       *chat.Service
+	skillService      *skillsvc.Service
+	skillImporter     *skillsvc.ImportService
+	fluxALoginLimiter *fluxALoginLimiter
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {

@@ -76,7 +76,7 @@ func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
 		Email:       "user@example.com",
 	}}
 
-	rec := performFluxALogin(newFluxATestRouter(authenticator, verifier), `{"site":"  paid  ","username":"  fluxa-user  ","password":"raw-password"}`)
+	rec := performFluxALogin(newFluxATestRouter(authenticator, verifier), `{"site":"  paid  ","username":"  fluxa-user  ","password":"  raw-password\t "}`)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
@@ -98,8 +98,8 @@ func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
 		t.Fatal("response echoed the password")
 	}
 
-	if calls, site, username, password := authenticator.snapshot(); calls != 1 || site != auth.FluxASitePaid || username != "fluxa-user" || password != "raw-password" {
-		t.Fatalf("authenticator call = (%d, %q, %q, %q), want (1, paid, fluxa-user, raw-password)", calls, site, username, password)
+	if calls, site, username, password := authenticator.snapshot(); calls != 1 || site != auth.FluxASitePaid || username != "fluxa-user" || password != "  raw-password\t " {
+		t.Fatalf("authenticator call = (%d, %q, %q, %q), want password preserved byte-for-byte", calls, site, username, password)
 	}
 	if calls, site, token := verifier.snapshot(); calls != 1 || site != auth.FluxASitePaid || token != internalToken {
 		t.Fatalf("verifier call = (%d, %q, %q), want (1, paid, %q)", calls, site, token, internalToken)
@@ -148,6 +148,55 @@ func TestFluxALoginRejectsMissingCredentials(t *testing.T) {
 			}
 			if strings.Contains(rec.Body.String(), "raw-password") || strings.Contains(rec.Body.String(), "legacy-token") {
 				t.Fatal("response exposed a submitted secret")
+			}
+		})
+	}
+}
+
+func TestFluxALoginRejectsOversizedRequestBodyWithoutAuthenticating(t *testing.T) {
+	authenticator := &recordingFluxACredentialAuthenticator{token: "internal-upstream-token"}
+	body := `{"site":"paid","username":"fluxa-user","password":"` + strings.Repeat("x", 20<<10) + `"}`
+	rec := performFluxALogin(newFluxATestRouter(authenticator, &recordingFluxAVerifier{}), body)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	assertFluxAError(t, rec, errorCodeInvalidRequestBody, "", "invalid request body")
+	if calls, _, _, _ := authenticator.snapshot(); calls != 0 {
+		t.Fatalf("authenticator calls = %d, want 0", calls)
+	}
+}
+
+func TestFluxALoginRejectsCredentialFieldsOverByteLimits(t *testing.T) {
+	tests := []struct {
+		name      string
+		username  string
+		password  string
+		wantField string
+	}{
+		{name: "username", username: strings.Repeat("界", 86), password: "password", wantField: "username"},
+		{name: "password", username: "fluxa-user", password: strings.Repeat("界", 1366), wantField: "password"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authenticator := &recordingFluxACredentialAuthenticator{token: "internal-upstream-token"}
+			body, err := json.Marshal(map[string]string{
+				"site":     "paid",
+				"username": tt.username,
+				"password": tt.password,
+			})
+			if err != nil {
+				t.Fatalf("marshal request: %v", err)
+			}
+			rec := performFluxALogin(newFluxATestRouter(authenticator, &recordingFluxAVerifier{}), string(body))
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+			}
+			assertFluxAError(t, rec, errorCodeValidationFailed, tt.wantField, "")
+			if calls, _, _, _ := authenticator.snapshot(); calls != 0 {
+				t.Fatalf("authenticator calls = %d, want 0", calls)
 			}
 		})
 	}
@@ -228,7 +277,12 @@ func newFluxATestRouter(authenticator auth.FluxACredentialAuthenticator, verifie
 }
 
 func performFluxALogin(router http.Handler, body string) *httptest.ResponseRecorder {
+	return performFluxALoginFrom(router, body, "192.0.2.1:1234")
+}
+
+func performFluxALoginFrom(router http.Handler, body, remoteAddr string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPost, "/v1/auth/fluxa", strings.NewReader(body))
+	req.RemoteAddr = remoteAddr
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)

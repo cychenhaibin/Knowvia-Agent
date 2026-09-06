@@ -21,12 +21,13 @@ func NewRouter(
 	skillImporter *skillsvc.ImportService,
 ) http.Handler {
 	h := &Handler{
-		authService:      authService,
-		runService:       runService,
-		knowledgeService: knowledgeService,
-		chatService:      chatService,
-		skillService:     skillService,
-		skillImporter:    skillImporter,
+		authService:       authService,
+		runService:        runService,
+		knowledgeService:  knowledgeService,
+		chatService:       chatService,
+		skillService:      skillService,
+		skillImporter:     skillImporter,
+		fluxALoginLimiter: newDefaultFluxALoginLimiter(),
 	}
 
 	router := chi.NewRouter()
