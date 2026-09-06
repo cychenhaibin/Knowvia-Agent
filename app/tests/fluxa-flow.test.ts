@@ -151,6 +151,12 @@ test('FluxA service details switch between configuration and account groups with
   assert.doesNotMatch(screen, /API Key|API代理地址|连通性检查/);
 });
 
+test('FluxA model aggregation tolerates groups without a models array', () => {
+  const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
+
+  assert.match(screen, /group\.models\s*\?\?\s*\[\]/);
+});
+
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;

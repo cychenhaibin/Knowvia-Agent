@@ -69,7 +69,7 @@ export default function FluxAModelGroupsScreen() {
     enabled: Boolean(accessToken && user?.id && user?.fluxaSite),
   });
   const groups = modelGroupsQuery.data ?? [];
-  const models = groups.flatMap((group) => group.models.map((model) => ({id: `${group.id}:${model.id}`, name: model.name, group: group.group})));
+  const models = groups.flatMap((group) => (group.models ?? []).map((model) => ({id: `${group.id}:${model.id}`, name: model.name, group: group.group})));
 
   return (
     <SafeAreaView className="flex-1" style={{backgroundColor: colors.background}} edges={['top', 'bottom', 'left', 'right']}>
