@@ -227,7 +227,12 @@ func jsonShapeSummary(raw json.RawMessage) string {
 					}
 				}
 			case map[string]any:
-				shape = "object"
+				itemKeys := make([]string, 0, len(nested.(map[string]any)))
+				for itemKey := range nested.(map[string]any) {
+					itemKeys = append(itemKeys, itemKey)
+				}
+				sort.Strings(itemKeys)
+				shape = "object:keys=" + strings.Join(itemKeys, ",")
 			}
 			keys = append(keys, key+":"+shape)
 		}
