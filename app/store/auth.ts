@@ -2,6 +2,7 @@ import {create} from 'zustand';
 
 import {clearGoogleCredentialState} from '@/lib/google-auth';
 import {clearMicrosoftAccountState} from '@/lib/microsoft-auth';
+import {queryClient} from '@/lib/query-client';
 import {clearSession, loadSession, saveSession} from '@/lib/session';
 import type {SessionPayload, User} from '@/types/api';
 
@@ -51,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await clearSession();
     await clearGoogleCredentialState();
     await clearMicrosoftAccountState();
+    queryClient.removeQueries({queryKey: ['fluxa-model-groups']});
     set({
       user: null,
       accessToken: null,

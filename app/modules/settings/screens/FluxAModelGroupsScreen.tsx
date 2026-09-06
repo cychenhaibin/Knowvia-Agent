@@ -12,11 +12,11 @@ import {fontSizes} from '@/theme/typography';
 import {useAppTheme} from '@/theme/useAppTheme';
 import type {FluxAModelGroup} from '@/types/api';
 
-function errorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
+function fluxaModelGroupsErrorMessage(error: unknown, t: ReturnType<typeof useI18n>['t']) {
+  if (error instanceof Error && error.message.trim().toLowerCase() === 're-login required') {
+    return t('fluxaModelGroups.reloginRequired');
   }
-  return fallback;
+  return t('fluxaModelGroups.loadFailed');
 }
 
 function FluxAModelGroupSection({group}: {group: FluxAModelGroup}) {
@@ -44,12 +44,13 @@ function FluxAModelGroupSection({group}: {group: FluxAModelGroup}) {
 export default function FluxAModelGroupsScreen() {
   const router = useRouter();
   const accessToken = useAuthStore((state) => state.accessToken);
+  const user = useAuthStore((state) => state.user);
   const {colors} = useAppTheme();
   const {t} = useI18n();
   const modelGroupsQuery = useQuery({
-    queryKey: ['fluxa-model-groups'],
+    queryKey: ['fluxa-model-groups', user?.id, user?.fluxaSite],
     queryFn: () => api.listFluxAModelGroups(accessToken!),
-    enabled: Boolean(accessToken),
+    enabled: Boolean(accessToken && user?.id && user?.fluxaSite),
   });
   const groups = modelGroupsQuery.data ?? [];
 
@@ -84,7 +85,7 @@ export default function FluxAModelGroupsScreen() {
           <Text
             className="text-center"
             style={{fontSize: fontSizes.sm, lineHeight: 22, color: colors.textSecondary}}>
-            {errorMessage(modelGroupsQuery.error, t('fluxaModelGroups.loadFailed'))}
+            {fluxaModelGroupsErrorMessage(modelGroupsQuery.error, t)}
           </Text>
           <View className="min-w-[140px]">
             <PrimaryButton

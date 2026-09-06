@@ -107,6 +107,15 @@ test('model group settings are gated by fluxaSite', () => {
   assert.match(profile, /router\.push\('\/fluxa-model-groups'\)/);
 });
 
+test('FluxA model group cache is scoped to the signed-in account and site', () => {
+  const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
+  const auth = readFileSync('store/auth.ts', 'utf8');
+
+  assert.match(screen, /queryKey:\s*\['fluxa-model-groups',\s*user\?\.id,\s*user\?\.fluxaSite\]/);
+  assert.doesNotMatch(screen, /queryKey:\s*\['fluxa-model-groups'\]/);
+  assert.match(auth, /queryClient\.removeQueries\(\{queryKey:\s*\['fluxa-model-groups'\]\}\)/);
+});
+
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
