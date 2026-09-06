@@ -25,9 +25,14 @@ function FluxAModelGroupSection({group}: {group: FluxAModelGroup}) {
   return (
     <Pressable className="rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
       <View className="flex-row items-center justify-between">
-        <Text style={{fontSize: fontSizes.lg, fontWeight: '700', color: colors.textPrimary}}>
-          {group.name}
-        </Text>
+        <View className="flex-1 flex-row items-center gap-2 pr-3">
+          <Text style={{fontSize: fontSizes.md, fontWeight: '700', color: colors.textPrimary}}>
+            {group.name}
+          </Text>
+          <View className="rounded-full bg-blue-500/15 px-2 py-1">
+            <Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{group.group || '用户分组'}</Text>
+          </View>
+        </View>
         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
       </View>
       <View className="mt-2 flex-row items-center gap-2">
