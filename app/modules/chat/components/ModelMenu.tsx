@@ -2,6 +2,7 @@ import {Ionicons} from '@expo/vector-icons';
 import {Modal, Pressable, Text, View} from 'react-native';
 
 import type {ModelChoice, MenuPosition} from '@/modules/chat/types';
+import type {EnabledFluxAModel} from '@/store/preferences';
 import type {AppColors} from '@/theme/colors';
 
 export function ModelMenu({
@@ -12,6 +13,7 @@ export function ModelMenu({
   selectedModelId,
   onClose,
   onSelect,
+  fluxaModels = [],
 }: {
   colors: AppColors;
   visible: boolean;
@@ -20,6 +22,7 @@ export function ModelMenu({
   selectedModelId: string;
   onClose: () => void;
   onSelect: (modelId: string) => void;
+  fluxaModels?: EnabledFluxAModel[];
 }) {
   if (!visible || !position) {
     return null;
@@ -52,6 +55,7 @@ export function ModelMenu({
             shadowRadius: 20,
             elevation: 16,
           }}>
+          {fluxaModels.length ? <View className="px-6 pb-2 pt-4"><Text className="text-[12px] font-medium" style={{color: colors.textSecondary}}>FluxA 模型</Text>{fluxaModels.map((model) => <View key={model.id} className="mt-2"><Text className="text-[16px]" style={{color: colors.textPrimary}}>{model.name}</Text><Text className="text-[12px]" style={{color: colors.textSecondary}}>{model.group}</Text></View>)}</View> : null}
           {models.map((model, index) => {
             const active = model.id === selectedModelId;
             const disabled = model.available === false;

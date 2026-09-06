@@ -2,7 +2,7 @@ import {Ionicons} from '@expo/vector-icons';
 import {useQuery} from '@tanstack/react-query';
 import {useRouter} from 'expo-router';
 import {useState} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, Text, View} from 'react-native';
+import {ActivityIndicator, Pressable, ScrollView, Switch, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
 import {FluxAIcon} from '@/components/FluxAIcon';
@@ -10,6 +10,7 @@ import {PrimaryButton} from '@/components/PrimaryButton';
 import {useI18n} from '@/i18n/useI18n';
 import {api} from '@/lib/api';
 import {useAuthStore} from '@/store/auth';
+import {usePreferencesStore} from '@/store/preferences';
 import {fontSizes} from '@/theme/typography';
 import {useAppTheme} from '@/theme/useAppTheme';
 import type {FluxAModelGroup} from '@/types/api';
@@ -29,7 +30,7 @@ function FluxAModelGroupSection({group}: {group: FluxAModelGroup}) {
     <Pressable className="rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
       <View className="flex-row items-center justify-between">
         <View className="flex-1 flex-row items-center gap-2 pr-3">
-          <Text style={{fontSize: fontSizes.md, fontWeight: '700', color: colors.textPrimary}}>{group.name}</Text>
+          <Text style={{fontSize: fontSizes.md, fontWeight: '600', color: colors.textPrimary}}>{group.name}</Text>
           <View className="rounded-full bg-blue-500/15 px-2 py-1">
             <Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{group.group || '用户分组'}</Text>
           </View>
@@ -49,9 +50,9 @@ function FluxAModelGroupSection({group}: {group: FluxAModelGroup}) {
 function ServiceTab({active, icon, label, onPress}: {active: boolean; icon: 'layers-outline' | 'hardware-chip-outline'; label: string; onPress: () => void}) {
   const {colors} = useAppTheme();
   return (
-    <Pressable className="flex-1 flex-row items-center justify-center gap-2 rounded-[18px] py-3" onPress={onPress} style={{backgroundColor: active ? colors.surface : 'transparent'}}>
-      <Ionicons name={icon} size={22} color={active ? colors.textPrimary : colors.textSecondary} />
-      <Text style={{fontSize: fontSizes.md, fontWeight: active ? '600' : '500', color: active ? colors.textPrimary : colors.textSecondary}}>{label}</Text>
+    <Pressable className="flex-1 flex-row items-center justify-center gap-2 rounded-[8px] py-2" onPress={onPress} style={{backgroundColor: active ? colors.surface : 'transparent'}}>
+      <Ionicons name={icon} size={18} color={active ? colors.textPrimary : colors.textSecondary} />
+      <Text style={{fontSize: fontSizes.sm, fontWeight: active ? '500' : '500', color: active ? colors.textPrimary : colors.textSecondary}}>{label}</Text>
     </Pressable>
   );
 }
@@ -60,6 +61,8 @@ export default function FluxAModelGroupsScreen() {
   const router = useRouter();
   const accessToken = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
+  const enabledFluxAModels = usePreferencesStore((state) => state.enabledFluxAModelsByUser[user?.id ?? ''] ?? []);
+  const setEnabledFluxAModels = usePreferencesStore((state) => state.setEnabledFluxAModels);
   const {colors} = useAppTheme();
   const {t} = useI18n();
   const [activeTab, setActiveTab] = useState<FluxAServiceTab>('groups');
@@ -82,6 +85,14 @@ export default function FluxAModelGroupsScreen() {
     enabled: activeTab === 'models' && Boolean(accessToken && user?.id && user?.fluxaSite && groupNames.length),
   });
   const models = modelsQuery.data ?? [];
+  const toggleModel = (model: {id: string; name: string; group: string}, enabled: boolean) => {
+    if (!user?.id) return;
+    const key = `${model.group}:${model.id}`;
+    const next = enabled
+      ? [...enabledFluxAModels, {...model, id: key}]
+      : enabledFluxAModels.filter((item) => item.id !== key);
+    void setEnabledFluxAModels(user.id, next);
+  };
 
   return (
     <SafeAreaView className="flex-1" style={{backgroundColor: colors.background}} edges={['top', 'bottom', 'left', 'right']}>
@@ -94,27 +105,27 @@ export default function FluxAModelGroupsScreen() {
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{padding: 20, paddingBottom: 28}} showsVerticalScrollIndicator={false}>
-        <View className="mb-7 flex-row items-center gap-4">
-          <View className="h-16 w-16 items-center justify-center rounded-[22px]" style={{backgroundColor: colors.surface}}>
-            <FluxAIcon color={colors.brand} />
+        <View className="mb-4 flex-row items-center gap-4">
+          <View className="h-12 w-12 items-center justify-center rounded-[50%]" style={{backgroundColor: colors.surface}}>
+            <FluxAIcon color={colors.brand} height={32} width={32} />
           </View>
           <View className="flex-1">
             <View className="flex-row items-center gap-2">
-              <Text style={{fontSize: fontSizes.xl, fontWeight: '700', color: colors.textPrimary}}>FluxA</Text>
+              <Text style={{fontSize: fontSizes.md, fontWeight: '500', color: colors.textPrimary}}>FluxA</Text>
               {user?.fluxaGroup ? <View className="rounded-full bg-blue-500/15 px-2 py-1"><Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{user.fluxaGroup}</Text></View> : null}
             </View>
             <Text className="mt-1" style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>@{user?.username ?? ''}</Text>
           </View>
         </View>
 
-        <View className="mb-6 flex-row rounded-[20px] p-1" style={{backgroundColor: colors.surfaceMuted}}>
+        <View className="mb-2 flex-row rounded-[10px] p-0.5" style={{backgroundColor: colors.surfaceMuted}}>
           <ServiceTab active={activeTab === 'groups'} icon="layers-outline" label={t('fluxaModelGroups.groups')} onPress={() => setActiveTab('groups')} />
           <ServiceTab active={activeTab === 'models'} icon="hardware-chip-outline" label={t('fluxaModelGroups.models')} onPress={() => setActiveTab('models')} />
         </View>
 
         {activeTab === 'groups' ? (
           <View className="gap-3">
-            <Text style={{fontSize: fontSizes.sm, lineHeight: 22, color: colors.textSecondary}}>{t('fluxaModelGroups.description')}</Text>
+            <Text style={{fontSize: fontSizes.sm, lineHeight: 18, color: colors.textSecondary}}>{t('fluxaModelGroups.description')}</Text>
             {modelGroupsQuery.isLoading && !modelGroupsQuery.data ? (
               <View className="items-center gap-3 py-12"><ActivityIndicator size="large" color={colors.brand} /><Text style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>{t('fluxaModelGroups.loading')}</Text></View>
             ) : modelGroupsQuery.error ? (
@@ -131,7 +142,7 @@ export default function FluxAModelGroupsScreen() {
             {modelsQuery.isLoading ? <View className="items-center py-12"><ActivityIndicator size="large" color={colors.brand} /></View> : modelsQuery.error ? <Text style={{fontSize: fontSizes.sm, color: colors.textMuted}}>{t('fluxaModelGroups.loadFailed')}</Text> : models.length === 0 ? <Text style={{fontSize: fontSizes.sm, color: colors.textMuted}}>{t('fluxaModelGroups.modelsEmpty')}</Text> : models.map((model) => (
               <View key={`${model.group}:${model.id}`} className="flex-row items-center justify-between rounded-[18px] p-4" style={{backgroundColor: colors.surface}}>
                 <Text className="flex-1 pr-3" style={{fontSize: fontSizes.md, fontWeight: '600', color: colors.textPrimary}}>{model.name}</Text>
-                <View className="rounded-full bg-blue-500/15 px-2 py-1"><Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{model.group || t('fluxaModelGroups.groups')}</Text></View>
+                <View className="items-end gap-2"><View className="rounded-full bg-blue-500/15 px-2 py-1"><Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{model.group || t('fluxaModelGroups.groups')}</Text></View><Switch value={enabledFluxAModels.some((item) => item.id === `${model.group}:${model.id}`)} onValueChange={(enabled) => toggleModel(model, enabled)} trackColor={{false: colors.divider, true: colors.brand + '99'}} thumbColor={colors.surface} /></View>
               </View>
             ))}
           </View>

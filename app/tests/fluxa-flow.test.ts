@@ -165,6 +165,19 @@ test('FluxA model rows use the group and model identifier as a unique key', () =
   assert.doesNotMatch(screen, /<View key=\{model\.id\}/);
 });
 
+test('FluxA model switches persist enabled display preferences and feed the home picker', () => {
+  const settings = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
+  const preferences = readFileSync('store/preferences.ts', 'utf8');
+  const menu = readFileSync('modules/chat/components/ModelMenu.tsx', 'utf8');
+  const runs = readFileSync('modules/chat/screens/RunsScreen.tsx', 'utf8');
+
+  assert.match(settings, /<Switch/);
+  assert.match(settings, /setEnabledFluxAModels/);
+  assert.match(preferences, /FLUXA_MODELS_KEY/);
+  assert.match(menu, /fluxaModels/);
+  assert.match(runs, /fluxaModels=\{enabledFluxAModels\}/);
+});
+
 test('model group API sends only the Knowvia bearer token', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;

@@ -44,6 +44,7 @@ import {useI18n} from '@/i18n/useI18n';
 import {api, subscribeChatStream} from '@/lib/api';
 import {queryClient} from '@/lib/query-client';
 import {useAuthStore} from '@/store/auth';
+import {usePreferencesStore} from '@/store/preferences';
 import {useSkillsStore} from '@/store/skills';
 import type {ChatSession, PersistedChatMessage} from '@/types/api';
 import {fontSizes} from '@/theme/typography';
@@ -65,6 +66,7 @@ export default function RunsScreen() {
   const router = useRouter();
   const accessToken = useAuthStore((state) => state.accessToken)!;
   const user = useAuthStore((state) => state.user);
+  const enabledFluxAModels = usePreferencesStore((state) => state.enabledFluxAModelsByUser[user?.id ?? ''] ?? []);
   const installedSkills = useSkillsStore((state) => state.installedSkills);
   const {colors} = useAppTheme();
   const {t} = useI18n();
@@ -935,6 +937,7 @@ export default function RunsScreen() {
               });
             });
         }}
+        fluxaModels={enabledFluxAModels}
       />
 
       <SessionActionsMenu
