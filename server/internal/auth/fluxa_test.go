@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -455,6 +457,26 @@ type staticFluxACredentialAuthenticator struct {
 	password string
 }
 
+type failingFluxACredentialCipher struct{ err error }
+
+func (c failingFluxACredentialCipher) Encrypt(string, []byte) (string, error) {
+	return "", c.err
+}
+
+func (c failingFluxACredentialCipher) Decrypt(string, []byte) (string, error) {
+	return "", c.err
+}
+
+type recordingSessionStore struct {
+	SessionStore
+	created int
+}
+
+func (s *recordingSessionStore) CreateSession(ctx context.Context, session domain.Session) error {
+	s.created++
+	return s.SessionStore.CreateSession(ctx, session)
+}
+
 func (a *staticFluxACredentialAuthenticator) Login(_ context.Context, site FluxASite, username, password string) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -465,18 +487,155 @@ func (a *staticFluxACredentialAuthenticator) Login(_ context.Context, site FluxA
 	return a.token, a.err
 }
 
+func newFluxAServiceWithCredentialKey(t *testing.T) (*Service, *store.MemoryStore) {
+	t.Helper()
+	memory := store.NewMemoryStore()
+	user := domain.User{ID: "fluxa-user-id", Username: "fluxa-user", DisplayName: "FluxA User", CreatedAt: time.Now().UTC()}
+	if err := memory.UpsertUser(context.Background(), user); err != nil {
+		t.Fatalf("upsert FluxA user: %v", err)
+	}
+	if err := memory.UpsertAuthIdentity(context.Background(), domain.AuthIdentity{
+		ID:              authIdentityID(domain.AuthProviderFluxAPaid, "42"),
+		UserID:          user.ID,
+		Provider:        domain.AuthProviderFluxAPaid,
+		ProviderSubject: "42",
+		CreatedAt:       user.CreatedAt,
+		UpdatedAt:       user.CreatedAt,
+	}); err != nil {
+		t.Fatalf("upsert FluxA identity: %v", err)
+	}
+	cfg := testAuthConfig()
+	cfg.FluxACredentialsKey = make([]byte, 32)
+	service := NewService(ServiceDeps{
+		Users:              memory,
+		Identities:         memory,
+		Sessions:           memory,
+		ChatModels:         memory,
+		FluxACredentials:   memory,
+		FluxAVerifier:      &staticFluxAVerifier{identity: VerifiedFluxAIdentity{Subject: "42", Username: "user"}},
+		FluxAAuthenticator: &staticFluxACredentialAuthenticator{token: "upstream-token"},
+	}, cfg)
+	return service, memory
+}
+
+func TestFluxACredentialCipherEncryptsVerifiedTokenWithFreshNonceAndAAD(t *testing.T) {
+	cipher, err := NewFluxACredentialCipher(bytes.Repeat([]byte{1}, 32))
+	if err != nil {
+		t.Fatalf("new cipher: %v", err)
+	}
+	additionalData := fluxACredentialAdditionalData("fluxa-user-id", FluxASitePaid)
+	first, err := cipher.Encrypt("upstream-token", additionalData)
+	if err != nil {
+		t.Fatalf("encrypt first token: %v", err)
+	}
+	second, err := cipher.Encrypt("upstream-token", additionalData)
+	if err != nil {
+		t.Fatalf("encrypt second token: %v", err)
+	}
+	if first == second {
+		t.Fatal("two encryptions produced the same ciphertext")
+	}
+	if _, err := base64.RawStdEncoding.DecodeString(first); err != nil {
+		t.Fatalf("ciphertext is not raw standard base64: %v", err)
+	}
+	plaintext, err := cipher.Decrypt(first, additionalData)
+	if err != nil {
+		t.Fatalf("decrypt token: %v", err)
+	}
+	if plaintext != "upstream-token" {
+		t.Fatalf("plaintext = %q, want upstream token", plaintext)
+	}
+}
+
+func TestFluxACredentialCipherRejectsWrongAADAndTampering(t *testing.T) {
+	cipher, err := NewFluxACredentialCipher(bytes.Repeat([]byte{1}, 32))
+	if err != nil {
+		t.Fatalf("new cipher: %v", err)
+	}
+	additionalData := fluxACredentialAdditionalData("fluxa-user-id", FluxASitePaid)
+	ciphertext, err := cipher.Encrypt("upstream-token", additionalData)
+	if err != nil {
+		t.Fatalf("encrypt token: %v", err)
+	}
+	if _, err := cipher.Decrypt(ciphertext, fluxACredentialAdditionalData("other-user", FluxASitePaid)); err == nil {
+		t.Fatal("ciphertext decrypted with a different user ID")
+	}
+	decoded, err := base64.RawStdEncoding.DecodeString(ciphertext)
+	if err != nil {
+		t.Fatalf("decode ciphertext: %v", err)
+	}
+	decoded[len(decoded)-1] ^= 1
+	if _, err := cipher.Decrypt(base64.RawStdEncoding.EncodeToString(decoded), additionalData); err == nil {
+		t.Fatal("tampered ciphertext decrypted successfully")
+	}
+}
+
+func TestLoginWithFluxACredentialsRejectsUnavailablePersistenceBeforeAuthentication(t *testing.T) {
+	memory := store.NewMemoryStore()
+	authenticator := &staticFluxACredentialAuthenticator{token: "upstream-token"}
+	verifier := &staticFluxAVerifier{identity: VerifiedFluxAIdentity{Subject: "42", Username: "user"}}
+	service := NewService(ServiceDeps{
+		Users:              memory,
+		Identities:         memory,
+		Sessions:           memory,
+		ChatModels:         memory,
+		FluxAVerifier:      verifier,
+		FluxAAuthenticator: authenticator,
+	}, testAuthConfig())
+
+	_, err := service.LoginWithFluxACredentials(context.Background(), FluxASitePaid, "user", "secret")
+	if !errors.Is(err, ErrFluxAUnavailable) {
+		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
+	}
+	if authenticator.calls != 0 || verifier.calls != 0 {
+		t.Fatalf("authentication calls = (%d, %d), want none", authenticator.calls, verifier.calls)
+	}
+}
+
+func TestLoginWithFluxACredentialsDoesNotCreateSessionWhenEncryptionFails(t *testing.T) {
+	memory := store.NewMemoryStore()
+	sessions := &recordingSessionStore{SessionStore: memory}
+	credentialErr := errors.New("credential encryption failed")
+	authenticator := &staticFluxACredentialAuthenticator{token: "upstream-token"}
+	verifier := &staticFluxAVerifier{identity: VerifiedFluxAIdentity{Subject: "42", Username: "user"}}
+	service := NewService(ServiceDeps{
+		Users:              memory,
+		Identities:         memory,
+		Sessions:           sessions,
+		ChatModels:         memory,
+		FluxACredentials:   memory,
+		FluxACipher:        failingFluxACredentialCipher{err: credentialErr},
+		FluxAVerifier:      verifier,
+		FluxAAuthenticator: authenticator,
+	}, testAuthConfig())
+
+	_, err := service.LoginWithFluxACredentials(context.Background(), FluxASitePaid, "user", "secret")
+	if !errors.Is(err, credentialErr) {
+		t.Fatalf("error = %v, want credential encryption error", err)
+	}
+	if verifier.calls != 1 {
+		t.Fatalf("verifier calls = %d, want 1", verifier.calls)
+	}
+	if sessions.created != 0 {
+		t.Fatalf("created sessions = %d, want 0", sessions.created)
+	}
+}
+
 func TestLoginWithFluxACredentialsTrimsOnlyUsernameAndDoesNotPersistCredentials(t *testing.T) {
 	mem := store.NewMemoryStore()
 	credentialAuthenticator := &staticFluxACredentialAuthenticator{token: "upstream-access-token"}
 	verifier := &staticFluxAVerifier{identity: VerifiedFluxAIdentity{Subject: "42", Username: "credential-user"}}
+	cfg := testAuthConfig()
+	cfg.FluxACredentialsKey = make([]byte, 32)
 	service := NewService(ServiceDeps{
 		Users:              mem,
 		Identities:         mem,
 		Sessions:           mem,
 		ChatModels:         mem,
+		FluxACredentials:   mem,
 		FluxAVerifier:      verifier,
 		FluxAAuthenticator: credentialAuthenticator,
-	}, testAuthConfig())
+	}, cfg)
 
 	tokens, err := service.LoginWithFluxACredentials(context.Background(), FluxASitePaid, "  credential-user  ", "  credential-password  ")
 	if err != nil {
@@ -497,6 +656,31 @@ func TestLoginWithFluxACredentialsTrimsOnlyUsernameAndDoesNotPersistCredentials(
 	}
 	if storedUser.PasswordHash != "" {
 		t.Fatalf("FluxA user persisted credential material in password hash: %q", storedUser.PasswordHash)
+	}
+}
+
+func TestLoginWithFluxACredentialsEncryptsAndStoresOnlyAccessToken(t *testing.T) {
+	service, memory := newFluxAServiceWithCredentialKey(t)
+	tokens, err := service.LoginWithFluxACredentials(context.Background(), FluxASitePaid, " user ", " secret ")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if tokens.FluxASite == nil || *tokens.FluxASite != FluxASitePaid {
+		t.Fatalf("FluxA site = %v, want paid", tokens.FluxASite)
+	}
+	stored, err := memory.GetFluxACredential(context.Background(), "fluxa-user-id", FluxASitePaid)
+	if err != nil {
+		t.Fatalf("get stored credential: %v", err)
+	}
+	if strings.Contains(stored.TokenCiphertext, "secret") || strings.Contains(stored.TokenCiphertext, "upstream-token") {
+		t.Fatal("credential stored as plaintext")
+	}
+	plaintext, err := service.fluxACipher.Decrypt(stored.TokenCiphertext, fluxACredentialAdditionalData("fluxa-user-id", FluxASitePaid))
+	if err != nil {
+		t.Fatalf("decrypt stored credential: %v", err)
+	}
+	if plaintext != "upstream-token" {
+		t.Fatalf("stored plaintext = %q, want upstream token", plaintext)
 	}
 }
 

@@ -35,6 +35,20 @@ type FluxACredentialAuthenticator interface {
 	Login(context.Context, FluxASite, string, string) (string, error)
 }
 
+type FluxACredentialStore interface {
+	UpsertFluxACredential(context.Context, domain.FluxACredential) error
+	GetFluxACredential(context.Context, string, FluxASite) (domain.FluxACredential, error)
+}
+
+type FluxACredentialCipher interface {
+	Encrypt(plaintext string, additionalData []byte) (string, error)
+	Decrypt(ciphertext string, additionalData []byte) (string, error)
+}
+
+type FluxAModelGroupsFetcher interface {
+	List(context.Context, FluxASite, string) ([]FluxAModelGroup, error)
+}
+
 type ServiceDeps struct {
 	Users              UserStore
 	Identities         AuthIdentityStore
@@ -42,4 +56,7 @@ type ServiceDeps struct {
 	ChatModels         ChatModelDefaultsStore
 	FluxAVerifier      FluxAIdentityVerifier
 	FluxAAuthenticator FluxACredentialAuthenticator
+	FluxACredentials   FluxACredentialStore
+	FluxACipher        FluxACredentialCipher
+	FluxAModels        FluxAModelGroupsFetcher
 }

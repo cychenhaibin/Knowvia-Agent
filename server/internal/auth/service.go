@@ -30,6 +30,9 @@ type Service struct {
 	microsoftVerifier  MicrosoftTokenVerifier
 	fluxAVerifier      FluxAIdentityVerifier
 	fluxAAuthenticator FluxACredentialAuthenticator
+	fluxACredentials   FluxACredentialStore
+	fluxACipher        FluxACredentialCipher
+	fluxAModels        FluxAModelGroupsFetcher
 }
 
 var nonExpiringSessionExpiresAt = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
@@ -81,7 +84,28 @@ func NewServiceWithVerifiers(
 		microsoftVerifier:  microsoftVerifier,
 		fluxAVerifier:      fluxAVerifier,
 		fluxAAuthenticator: resolveFluxAAuthenticator(deps, cfg),
+		fluxACredentials:   deps.FluxACredentials,
+		fluxACipher:        resolveFluxACredentialCipher(deps, cfg),
+		fluxAModels:        resolveFluxAModelGroupsFetcher(deps, cfg),
 	}
+}
+
+func resolveFluxAModelGroupsFetcher(deps ServiceDeps, cfg config.Config) FluxAModelGroupsFetcher {
+	if deps.FluxAModels != nil {
+		return deps.FluxAModels
+	}
+	return NewFluxAModelGroupsFetcher(cfg.FluxAPaidOrigin, cfg.FluxAFreeOrigin)
+}
+
+func resolveFluxACredentialCipher(deps ServiceDeps, cfg config.Config) FluxACredentialCipher {
+	if deps.FluxACipher != nil {
+		return deps.FluxACipher
+	}
+	cipher, err := NewFluxACredentialCipher(cfg.FluxACredentialsKey)
+	if err != nil {
+		return nil
+	}
+	return cipher
 }
 
 func resolveFluxAVerifier(deps ServiceDeps, cfg config.Config) FluxAIdentityVerifier {

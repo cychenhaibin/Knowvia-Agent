@@ -21,12 +21,14 @@ var ErrFluxAInvalidCredentials = errors.New("invalid FluxA credentials")
 var ErrFluxA2FARequired = errors.New("FluxA two-factor authentication is required")
 var ErrFluxAUnavailable = errors.New("FluxA identity service is unavailable")
 var ErrFluxAUnsupportedSite = errors.New("unsupported FluxA site")
+var ErrFluxANotConnected = errors.New("FluxA account is not connected")
+var ErrFluxAReauthenticationRequired = errors.New("FluxA re-authentication is required")
 
-type FluxASite string
+type FluxASite = domain.FluxASite
 
 const (
-	FluxASitePaid FluxASite = "paid"
-	FluxASiteFree FluxASite = "free"
+	FluxASitePaid = domain.FluxASitePaid
+	FluxASiteFree = domain.FluxASiteFree
 )
 
 type VerifiedFluxAIdentity struct {
@@ -272,21 +274,29 @@ func fluxAProvider(site FluxASite) (domain.AuthProvider, error) {
 }
 
 func (s *Service) LoginWithFluxA(ctx context.Context, site FluxASite, accessToken string) (TokenPair, error) {
-	provider, err := fluxAProvider(site)
+	user, err := s.resolveFluxAUser(ctx, site, accessToken)
 	if err != nil {
 		return TokenPair{}, err
 	}
+	return s.issueSession(ctx, user)
+}
+
+func (s *Service) resolveFluxAUser(ctx context.Context, site FluxASite, accessToken string) (domain.User, error) {
+	provider, err := fluxAProvider(site)
+	if err != nil {
+		return domain.User{}, err
+	}
 	if s.fluxAVerifier == nil {
-		return TokenPair{}, ErrFluxAUnavailable
+		return domain.User{}, ErrFluxAUnavailable
 	}
 
 	identity, err := s.fluxAVerifier.Verify(ctx, site, accessToken)
 	if err != nil {
-		return TokenPair{}, err
+		return domain.User{}, err
 	}
 	identity, err = normalizeFluxAIdentity(identity)
 	if err != nil {
-		return TokenPair{}, err
+		return domain.User{}, err
 	}
 
 	user, err := s.userStore.GetUserByAuthIdentity(ctx, provider, identity.Subject)
@@ -298,10 +308,10 @@ func (s *Service) LoginWithFluxA(ctx context.Context, site FluxASite, accessToke
 			UsernameBase: "fluxa-" + string(site) + "-" + identity.Subject,
 		})
 		if err != nil {
-			return TokenPair{}, err
+			return domain.User{}, err
 		}
 	default:
-		return TokenPair{}, err
+		return domain.User{}, err
 	}
 
 	displayName := identity.DisplayName
@@ -320,7 +330,7 @@ func (s *Service) LoginWithFluxA(ctx context.Context, site FluxASite, accessToke
 	}
 	if updated != user {
 		if err := s.userStore.UpsertUser(ctx, updated); err != nil {
-			return TokenPair{}, err
+			return domain.User{}, err
 		}
 		user = updated
 	}
@@ -337,15 +347,18 @@ func (s *Service) LoginWithFluxA(ctx context.Context, site FluxASite, accessToke
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}); err != nil {
-		return TokenPair{}, err
+		return domain.User{}, err
 	}
 
-	return s.issueSession(ctx, user)
+	return user, nil
 }
 
 func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite, username, password string) (TokenPair, error) {
 	if _, err := fluxAProvider(site); err != nil {
 		return TokenPair{}, err
+	}
+	if s.fluxACredentials == nil || s.fluxACipher == nil {
+		return TokenPair{}, ErrFluxAUnavailable
 	}
 	if s.fluxAAuthenticator == nil {
 		return TokenPair{}, ErrFluxAUnavailable
@@ -354,7 +367,34 @@ func (s *Service) LoginWithFluxACredentials(ctx context.Context, site FluxASite,
 	if err != nil {
 		return TokenPair{}, err
 	}
-	return s.LoginWithFluxA(ctx, site, accessToken)
+	user, err := s.resolveFluxAUser(ctx, site, accessToken)
+	if err != nil {
+		return TokenPair{}, err
+	}
+	ciphertext, err := s.fluxACipher.Encrypt(accessToken, fluxACredentialAdditionalData(user.ID, site))
+	if err != nil {
+		return TokenPair{}, err
+	}
+	now := time.Now().UTC()
+	if err := s.fluxACredentials.UpsertFluxACredential(ctx, domain.FluxACredential{
+		UserID:          user.ID,
+		Site:            site,
+		TokenCiphertext: ciphertext,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		return TokenPair{}, err
+	}
+	tokens, err := s.issueSession(ctx, user)
+	if err != nil {
+		return TokenPair{}, err
+	}
+	tokens.FluxASite = &site
+	return tokens, nil
+}
+
+func fluxACredentialAdditionalData(userID string, site FluxASite) []byte {
+	return []byte(userID + ":" + string(site))
 }
 
 func normalizeFluxAIdentity(identity VerifiedFluxAIdentity) (VerifiedFluxAIdentity, error) {

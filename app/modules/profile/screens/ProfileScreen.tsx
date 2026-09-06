@@ -352,6 +352,15 @@ export default function ProfileScreen() {
       label: t('profile.modelConfiguration'),
       onPress: () => router.push('/models'),
     },
+    ...(user?.fluxaSite === 'paid' || user?.fluxaSite === 'free'
+      ? [
+          {
+            icon: 'layers-outline' as IconName,
+            label: t('profile.fluxaModelGroups'),
+            onPress: () => router.push('/fluxa-model-groups'),
+          },
+        ]
+      : []),
     // {icon: 'extension-puzzle-outline', label: t('profile.integrations')},
   ];
   const supportSettings: SettingItem[] = [

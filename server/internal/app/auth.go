@@ -10,13 +10,15 @@ type authBackend interface {
 	auth.AuthIdentityStore
 	auth.SessionStore
 	auth.ChatModelDefaultsStore
+	auth.FluxACredentialStore
 }
 
 func buildAuthService(authStore authBackend, cfg config.Config) *auth.Service {
 	return auth.NewService(auth.ServiceDeps{
-		Users:      authStore,
-		Identities: authStore,
-		Sessions:   authStore,
-		ChatModels: authStore,
+		Users:            authStore,
+		Identities:       authStore,
+		Sessions:         authStore,
+		ChatModels:       authStore,
+		FluxACredentials: authStore,
 	}, cfg)
 }

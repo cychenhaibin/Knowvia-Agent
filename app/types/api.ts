@@ -16,6 +16,7 @@ export interface User {
   displayName: string;
   email?: string;
   avatarUrl?: string;
+  fluxaSite?: FluxASite;
 }
 
 export type ChatModelPurpose = 'general' | 'knowledge';
@@ -50,6 +51,11 @@ export interface SessionPayload {
 }
 
 export type FluxASite = 'paid' | 'free';
+
+export interface FluxAModelGroup {
+  name: string;
+  models: Array<{id: string; name: string}>;
+}
 
 export interface Run {
   id: string;

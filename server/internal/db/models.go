@@ -62,6 +62,14 @@ type ChatSession struct {
 	UpdatedAt     pgtype.Timestamptz
 }
 
+type FluxaCredential struct {
+	UserID          string
+	Site            string
+	TokenCiphertext string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
 type KnowledgeChunk struct {
 	ID           string
 	UserID       string

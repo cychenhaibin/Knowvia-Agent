@@ -12,6 +12,10 @@ func authIdentityKey(provider domain.AuthProvider, subject string) string {
 	return string(provider) + ":" + strings.TrimSpace(subject)
 }
 
+func fluxACredentialKey(userID string, site domain.FluxASite) string {
+	return userID + ":" + string(site)
+}
+
 func (s *MemoryStore) UpsertUser(_ context.Context, user domain.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -76,6 +80,27 @@ func (s *MemoryStore) UpsertAuthIdentity(_ context.Context, identity domain.Auth
 	s.authIdentities[identity.ID] = identity
 	s.authIdentityLookup[key] = identity.ID
 	return nil
+}
+
+func (s *MemoryStore) UpsertFluxACredential(_ context.Context, credential domain.FluxACredential) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := fluxACredentialKey(credential.UserID, credential.Site)
+	if existing, ok := s.fluxACredentials[key]; ok {
+		credential.CreatedAt = existing.CreatedAt
+	}
+	s.fluxACredentials[key] = credential
+	return nil
+}
+
+func (s *MemoryStore) GetFluxACredential(_ context.Context, userID string, site domain.FluxASite) (domain.FluxACredential, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	credential, ok := s.fluxACredentials[fluxACredentialKey(userID, site)]
+	if !ok {
+		return domain.FluxACredential{}, ErrNotFound
+	}
+	return credential, nil
 }
 
 func (s *MemoryStore) CreateSession(_ context.Context, session domain.Session) error {

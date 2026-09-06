@@ -11,6 +11,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getFluxACredential = `-- name: GetFluxACredential :one
+SELECT user_id, site, token_ciphertext, created_at, updated_at
+FROM fluxa_credentials
+WHERE user_id = $1 AND site = $2
+`
+
+type GetFluxACredentialParams struct {
+	UserID string
+	Site   string
+}
+
+func (q *Queries) GetFluxACredential(ctx context.Context, arg GetFluxACredentialParams) (FluxaCredential, error) {
+	row := q.db.QueryRow(ctx, getFluxACredential, arg.UserID, arg.Site)
+	var i FluxaCredential
+	err := row.Scan(
+		&i.UserID,
+		&i.Site,
+		&i.TokenCiphertext,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByAuthIdentity = `-- name: GetUserByAuthIdentity :one
 SELECT u.id, u.username, u.display_name, u.email, u.avatar_url, u.password_hash, u.created_at
 FROM auth_identities ai
@@ -144,6 +168,36 @@ func (q *Queries) UpsertAuthIdentity(ctx context.Context, arg UpsertAuthIdentity
 		arg.Email,
 		arg.EmailVerified,
 		arg.AvatarUrl,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const upsertFluxACredential = `-- name: UpsertFluxACredential :execrows
+INSERT INTO fluxa_credentials (user_id, site, token_ciphertext, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (user_id, site) DO UPDATE SET
+	token_ciphertext = EXCLUDED.token_ciphertext,
+	updated_at = EXCLUDED.updated_at
+`
+
+type UpsertFluxACredentialParams struct {
+	UserID          string
+	Site            string
+	TokenCiphertext string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
+func (q *Queries) UpsertFluxACredential(ctx context.Context, arg UpsertFluxACredentialParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertFluxACredential,
+		arg.UserID,
+		arg.Site,
+		arg.TokenCiphertext,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)

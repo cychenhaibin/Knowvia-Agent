@@ -88,6 +88,9 @@ func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
 	if payload.User.Email != "user@example.com" || payload.User.Username != "fluxa-paid-42" {
 		t.Fatalf("user = %#v, want paid FluxA user", payload.User)
 	}
+	if payload.User.FluxASite == nil || *payload.User.FluxASite != auth.FluxASitePaid {
+		t.Fatalf("fluxaSite = %#v, want %q", payload.User.FluxASite, auth.FluxASitePaid)
+	}
 	if payload.AccessToken == "" || payload.RefreshToken == "" {
 		t.Fatalf("session = %#v, want issued tokens", payload)
 	}
@@ -103,6 +106,14 @@ func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
 	}
 	if calls, site, token := verifier.snapshot(); calls != 1 || site != auth.FluxASitePaid || token != internalToken {
 		t.Fatalf("verifier call = (%d, %q, %q), want (1, paid, %q)", calls, site, token, internalToken)
+	}
+}
+
+func TestMapSessionOmitsFluxASiteForOrdinarySessions(t *testing.T) {
+	payload := mapSession(auth.TokenPair{})
+
+	if payload.User.FluxASite != nil {
+		t.Fatalf("fluxaSite = %#v, want nil", payload.User.FluxASite)
 	}
 }
 
@@ -266,12 +277,14 @@ func newFluxATestRouter(authenticator auth.FluxACredentialAuthenticator, verifie
 		Identities:         mem,
 		Sessions:           mem,
 		ChatModels:         mem,
+		FluxACredentials:   mem,
 		FluxAVerifier:      verifier,
 		FluxAAuthenticator: authenticator,
 	}, config.Config{
-		JWTSecret:  "test-secret",
-		AccessTTL:  30 * time.Minute,
-		RefreshTTL: 24 * time.Hour,
+		JWTSecret:           "test-secret",
+		AccessTTL:           30 * time.Minute,
+		RefreshTTL:          24 * time.Hour,
+		FluxACredentialsKey: make([]byte, 32),
 	})
 	return NewRouter(authService, nil, nil, nil, nil, nil)
 }

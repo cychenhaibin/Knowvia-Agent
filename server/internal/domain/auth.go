@@ -2,6 +2,13 @@ package domain
 
 import "time"
 
+type FluxASite string
+
+const (
+	FluxASitePaid FluxASite = "paid"
+	FluxASiteFree FluxASite = "free"
+)
+
 type AuthProvider string
 
 const (
@@ -32,6 +39,14 @@ type AuthIdentity struct {
 	Email           string
 	EmailVerified   bool
 	AvatarURL       string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type FluxACredential struct {
+	UserID          string
+	Site            FluxASite
+	TokenCiphertext string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
