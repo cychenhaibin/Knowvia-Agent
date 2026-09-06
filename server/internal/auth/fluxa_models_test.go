@@ -47,6 +47,36 @@ func TestFluxAModelGroupsLogsSafeUpstreamFailure(t *testing.T) {
 	}
 }
 
+func TestFluxAModelGroupsLogsSafeParseFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/user/self":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"group":"default"}}`))
+		case "/api/models":
+			_, _ = w.Write([]byte(`{"success":true,"data":[{"id":"model-a","name":42,"diagnostic":"do-not-log-me"}]}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	service, user := newFluxAModelGroupsService(t, server.URL, server.URL, server.Client())
+	_, err := service.ListFluxAModelGroups(context.Background(), user.ID, FluxASitePaid)
+	if !errors.Is(err, ErrFluxAUnavailable) {
+		t.Fatalf("error = %v, want ErrFluxAUnavailable", err)
+	}
+	if !strings.Contains(logs.String(), "fluxa_model_groups_parse_failure") || !strings.Contains(logs.String(), "route=/api/models") || !strings.Contains(logs.String(), "classification=models_payload_invalid") {
+		t.Fatalf("logs = %q, want safe parse diagnostic", logs.String())
+	}
+	if strings.Contains(logs.String(), "upstream-token") || strings.Contains(logs.String(), "do-not-log-me") {
+		t.Fatalf("logs exposed secret material: %q", logs.String())
+	}
+}
+
 func TestListFluxAModelGroupsUsesConfiguredOriginAndNormalizesPayload(t *testing.T) {
 	var mu sync.Mutex
 	requests := make([]string, 0, 2)

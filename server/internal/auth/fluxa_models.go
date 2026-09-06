@@ -101,6 +101,7 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 	}
 	accountGroups, err := parseFluxAAccountGroups(accountPayload)
 	if err != nil {
+		log.Printf("fluxa_model_groups_parse_failure route=/api/user/self classification=account_payload_invalid")
 		return nil, ErrFluxAUnavailable
 	}
 	modelPayload, err := f.get(ctx, origin, "/api/models", accessToken)
@@ -109,6 +110,7 @@ func (f *fluxAModelGroupsFetcher) List(ctx context.Context, site FluxASite, acce
 	}
 	models, err := parseFluxAModels(modelPayload)
 	if err != nil {
+		log.Printf("fluxa_model_groups_parse_failure route=/api/models classification=models_payload_invalid")
 		return nil, ErrFluxAUnavailable
 	}
 	return normalizeFluxAModelGroups(accountGroups, models), nil
