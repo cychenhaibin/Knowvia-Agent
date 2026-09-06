@@ -106,7 +106,23 @@ func TestFluxALoginReturnsSessionPayloadWithoutInternalToken(t *testing.T) {
 	}
 }
 
-func TestFluxALoginRejectsMissingCredentialsAndLegacyTokenBody(t *testing.T) {
+func TestFluxALoginRejectsLegacyAccessTokenAlongsideValidCredentials(t *testing.T) {
+	authenticator := &recordingFluxACredentialAuthenticator{token: "internal-upstream-token"}
+	rec := performFluxALogin(newFluxATestRouter(authenticator, &recordingFluxAVerifier{}), `{"site":"paid","username":"fluxa-user","password":"raw-password","accessToken":"legacy-token"}`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	assertFluxAError(t, rec, errorCodeInvalidRequestBody, "", "invalid request body")
+	if calls, _, _, _ := authenticator.snapshot(); calls != 0 {
+		t.Fatalf("authenticator calls = %d, want 0", calls)
+	}
+	if strings.Contains(rec.Body.String(), "raw-password") || strings.Contains(rec.Body.String(), "legacy-token") {
+		t.Fatal("response exposed a submitted secret")
+	}
+}
+
+func TestFluxALoginRejectsMissingCredentials(t *testing.T) {
 	tests := []struct {
 		name      string
 		body      string
@@ -116,7 +132,6 @@ func TestFluxALoginRejectsMissingCredentialsAndLegacyTokenBody(t *testing.T) {
 		{name: "blank username", body: `{"site":"paid","username":"  ","password":"raw-password"}`, wantField: "username"},
 		{name: "missing password", body: `{"site":"paid","username":"fluxa-user"}`, wantField: "password"},
 		{name: "blank password", body: `{"site":"paid","username":"fluxa-user","password":"  "}`, wantField: "password"},
-		{name: "legacy access token", body: `{"site":"paid","accessToken":"legacy-token"}`, wantField: "username"},
 	}
 
 	for _, tt := range tests {
