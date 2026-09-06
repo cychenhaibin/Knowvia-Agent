@@ -110,6 +110,15 @@ test('FluxA login renders the local RetroArch SVG', () => {
   assert.doesNotMatch(login, /cdn\.simpleicons\.org/);
 });
 
+test('FluxA icon accepts optional dimensions with a 20 pixel default', () => {
+  const icon = readFileSync('components/FluxAIcon.tsx', 'utf8');
+
+  assert.match(icon, /width\?: number/);
+  assert.match(icon, /height\?: number/);
+  assert.match(icon, /width = 20/);
+  assert.match(icon, /height = 20/);
+});
+
 test('model group settings are gated by fluxaSite', () => {
   const profile = readFileSync('modules/profile/screens/ProfileScreen.tsx', 'utf8');
   assert.match(profile, /user\?\.fluxaSite/);
