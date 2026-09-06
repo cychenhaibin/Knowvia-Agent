@@ -12,6 +12,11 @@ services:
       - "5433:5432"
     volumes:
       - qqagent_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quickque -d quickque_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -20,6 +25,24 @@ services:
       - "6380:6379"
     volumes:
       - qqagent_redis:/data
+
+  server:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: knowvia-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      QQA_SERVER_ADDR: 0.0.0.0:8088
+      QQA_STORE_BACKEND: postgres
+      QQA_POSTGRES_DSN: postgres://quickque:quickque@postgres:5432/quickque_agent?sslmode=disable
+      QQA_REDIS_ADDR: redis:6379
+      QQA_FLUXA_CREDENTIALS_KEY: ${QQA_FLUXA_CREDENTIALS_KEY:?set a base64-encoded 32-byte FluxA credentials key}
+    ports:
+      - "8088:8088"
+    restart: unless-stopped
 
 volumes:
   qqagent_pgdata:

@@ -71,7 +71,7 @@ cd infra
 docker compose up -d
 ```
 
-这会启动本地 Postgres/pgvector 和 Redis。你也可以改用自己的数据库，只要在 `server/.env` 和 `llm/.env` 中配置对应 DSN。
+这会启动本地 Postgres/pgvector、Redis 和 Go API（`http://localhost:8088`）。启动前请在 shell 或 `infra/.env` 中设置 `QQA_FLUXA_CREDENTIALS_KEY`，其值必须是 Base64 编码的 32 字节密钥。你也可以改用自己的数据库，只要在 `server/.env` 和 `llm/.env` 中配置对应 DSN。
 
 ### 2. 启动 Go Server
 

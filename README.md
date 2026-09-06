@@ -71,7 +71,7 @@ cd infra
 docker compose up -d
 ```
 
-This starts local Postgres/pgvector and Redis. You can also use your own database by setting the DSN values in `server/.env` and `llm/.env`.
+This starts local Postgres/pgvector, Redis, and the Go API at `http://localhost:8088`. Before starting Compose, set `QQA_FLUXA_CREDENTIALS_KEY` in your shell or an `infra/.env` file to a base64-encoded 32-byte key. You can also use your own database by setting the DSN values in `server/.env` and `llm/.env`.
 
 ### 2. Start Go Server
 
