@@ -123,7 +123,7 @@ test('model group API sends only the Knowvia bearer token', async () => {
   }
 
   assert.ok(fetchCall);
-  assert.equal(fetchCall.url.endsWith('/fluxa/model-groups'), true);
+  assert.equal(fetchCall.url, 'https://knowvia.example/v1/fluxa/model-groups');
   assert.equal(fetchCall.headers.get('Authorization'), 'Bearer knowvia-token');
 });
 
