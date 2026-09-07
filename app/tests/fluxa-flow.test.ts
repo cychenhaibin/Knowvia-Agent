@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {dirname} from 'node:path';
 import Module from 'node:module';
 import test from 'node:test';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import type {ComponentType, ReactNode} from 'react';
+import typescript from 'typescript';
 
 import type {signInWithGoogle} from '../lib/google-auth';
 
@@ -155,6 +159,50 @@ test('profile displays the formatted balance after the FluxA group and uses it f
   assert.match(screen, /creditsValue=\{formattedBalance\}/);
   assert.match(screen, /creditsValue\?: string \| null/);
   assert.doesNotMatch(screen, />2860</);
+});
+
+test('profile hides cached FluxA balance when its refresh fails', async () => {
+  const balance: FluxABalance = {
+    quota: 7_400_000,
+    quotaPerUnit: 500_000,
+    quotaDisplayType: 'CNY',
+    usdExchangeRate: 7.2,
+    customCurrencySymbol: '',
+    customCurrencyExchangeRate: 1,
+  };
+  const queryKey = ['fluxa-balance', 'user-1', 'paid'];
+  const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  let nextResponse: FluxABalance | Error = balance;
+  const apiClient = {
+    getFluxABalance: async () => {
+      if (nextResponse instanceof Error) throw nextResponse;
+      return nextResponse;
+    },
+  };
+  const ProfileScreen = loadProfileScreenForBalanceStateTest(apiClient);
+
+  try {
+    await queryClient.fetchQuery({
+      queryKey,
+      queryFn: () => apiClient.getFluxABalance(),
+    });
+    nextResponse = new Error('FluxA balance refresh failed');
+    await assert.rejects(
+      queryClient.fetchQuery({
+        queryKey,
+        queryFn: () => apiClient.getFluxABalance(),
+      }),
+    );
+
+    const cachedErrorState = queryClient.getQueryState<FluxABalance>(queryKey);
+    assert.deepEqual(cachedErrorState?.data, balance);
+    assert.equal(cachedErrorState?.status, 'error');
+
+    const refreshFailure = renderProfileScreen(ProfileScreen, queryClient);
+    assert.doesNotMatch(refreshFailure, /¥106\.56/);
+  } finally {
+    queryClient.clear();
+  }
 });
 
 test('logout removes all cached FluxA balances', () => {
@@ -529,6 +577,130 @@ test('model API encodes the selected FluxA group', async () => {
   }
   assert.equal(requestedUrl, 'https://knowvia.example/v1/fluxa/models?group=gpt%20%E4%B8%93%E7%94%A8');
 });
+
+function renderProfileScreen(ProfileScreen: ComponentType, queryClient?: QueryClient) {
+  const React = require('react') as typeof import('react');
+  const {renderToStaticMarkup} = require('react-dom/server') as {
+    renderToStaticMarkup: (element: ReturnType<typeof React.createElement>) => string;
+  };
+
+  const profile = React.createElement(ProfileScreen);
+  const screen = queryClient
+    ? React.createElement(QueryClientProvider, {client: queryClient}, profile)
+    : profile;
+
+  return renderToStaticMarkup(screen);
+}
+
+function loadProfileScreenForBalanceStateTest(apiClient: {
+  getFluxABalance: () => Promise<FluxABalance>;
+}) {
+  const React = require('react') as typeof import('react');
+  const profilePath = 'modules/profile/screens/ProfileScreen.tsx';
+  const source = readFileSync(profilePath, 'utf8');
+  const compiled = typescript.transpileModule(source, {
+    compilerOptions: {
+      jsx: typescript.JsxEmit.ReactJSX,
+      module: typescript.ModuleKind.CommonJS,
+      target: typescript.ScriptTarget.ES2020,
+      esModuleInterop: true,
+    },
+    fileName: profilePath,
+  });
+  const loader = Module as unknown as {
+    _load: (request: string, parent: unknown, isMain: boolean) => unknown;
+    _nodeModulePaths: (from: string) => string[];
+  };
+  const originalLoad = loader._load;
+  const host = (tag: string) => ({children}: {children?: ReactNode}) =>
+    React.createElement(tag, null, children);
+  const profileModule = new Module(profilePath) as Module & {
+    _compile: (content: string, filename: string) => void;
+  };
+  profileModule.filename = profilePath;
+  profileModule.paths = loader._nodeModulePaths(dirname(profilePath));
+
+  loader._load = (request, parent, isMain) => {
+    switch (request) {
+      case '@expo/vector-icons':
+        return {Ionicons: () => null};
+      case '@tanstack/react-query':
+        return originalLoad(request, parent, isMain);
+      case 'expo-router':
+        return {useRouter: () => ({push: () => undefined})};
+      case 'react-native':
+        return {
+          Modal: ({children, visible}: {children?: ReactNode; visible?: boolean}) =>
+            visible ? React.createElement('div', null, children) : null,
+          Pressable: host('button'),
+          Text: host('span'),
+          View: host('div'),
+          useWindowDimensions: () => ({width: 390}),
+        };
+      case '@/components/ConfirmModal':
+        return {ConfirmModal: () => null};
+      case '@/components/Screen':
+        return {Screen: host('main')};
+      case '@/i18n/useI18n':
+        return {useI18n: () => ({language: 'zh-Hans', t: (key: string) => key})};
+      case '@/i18n/languages':
+        return {languageLabelMap: {'zh-Hans': '简体中文'}};
+      case '@/lib/api':
+        return {api: apiClient};
+      case '@/lib/fluxaBalance':
+        return {formatFluxABalance};
+      case '@/store/auth':
+        return {
+          useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
+            selector({
+              user: {
+                id: 'user-1',
+                displayName: 'FluxA User',
+                username: 'fluxa-user',
+                fluxaSite: 'paid',
+                fluxaGroup: '默认分组',
+              },
+              accessToken: 'knowvia-access-token',
+              logout: () => undefined,
+            }),
+        };
+      case '@/store/preferences':
+        return {
+          usePreferencesStore: (selector: (state: Record<string, unknown>) => unknown) =>
+            selector({appearance: 'light', setAppearance: () => undefined}),
+        };
+      case '@/theme/typography':
+        return {fontSizes: {xs: 12, sm: 14, md: 16, lg: 18, xl: 20}};
+      case '@/theme/useAppTheme':
+        return {
+          useAppTheme: () => ({
+            colors: {
+              surface: '#fff',
+              textPrimary: '#111',
+              brand: '#f00',
+              divider: '#ddd',
+              icon: '#111',
+              iconSubtle: '#999',
+              textMuted: '#777',
+              textSecondary: '#666',
+              textTertiary: '#555',
+              overlaySoft: '#000',
+              shadow: '#000',
+            },
+          }),
+        };
+      default:
+        return originalLoad(request, parent, isMain);
+    }
+  };
+
+  try {
+    profileModule._compile(compiled.outputText, profilePath);
+    return profileModule.exports.default as ComponentType;
+  } finally {
+    loader._load = originalLoad;
+  }
+}
 
 function loadApiForTest(): Pick<typeof ApiClient, 'getFluxABalance' | 'listFluxAModelGroups' | 'listFluxAModels'> {
   const loader = Module as unknown as {

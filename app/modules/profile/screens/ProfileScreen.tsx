@@ -344,7 +344,7 @@ export default function ProfileScreen() {
     queryFn: () => api.getFluxABalance(accessToken!),
     enabled: Boolean(accessToken && user?.id && user?.fluxaSite),
   });
-  const formattedBalance = balanceQuery.data
+  const formattedBalance = balanceQuery.data && !balanceQuery.isError
     ? formatFluxABalance(balanceQuery.data, locale)
     : null;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
