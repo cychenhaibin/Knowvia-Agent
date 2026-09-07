@@ -95,3 +95,88 @@ func TestFluxABalanceFetcherMapsUnauthorizedUpstreamResponse(t *testing.T) {
 		t.Fatalf("balance error = %v, want ErrFluxAReauthenticationRequired", err)
 	}
 }
+
+func TestFluxABalanceFetcherRejectsMissingOrNullQuota(t *testing.T) {
+	for _, selfData := range []string{`{}`, `{"quota":null}`} {
+		t.Run(selfData, func(t *testing.T) {
+			server := newFluxABalanceTestServer(t, `{"quota_per_unit":500000,"quota_display_type":"USD"}`, selfData)
+			defer server.Close()
+
+			_, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
+			if !errors.Is(err, ErrFluxAUnavailable) {
+				t.Fatalf("balance error = %v, want ErrFluxAUnavailable", err)
+			}
+		})
+	}
+}
+
+func TestFluxABalanceFetcherRejectsMissingCNYUSDExchangeRate(t *testing.T) {
+	server := newFluxABalanceTestServer(t, `{"quota_per_unit":500000,"quota_display_type":"CNY"}`, `{"quota":1}`)
+	defer server.Close()
+
+	_, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
+	if !errors.Is(err, ErrFluxAUnavailable) {
+		t.Fatalf("balance error = %v, want ErrFluxAUnavailable", err)
+	}
+}
+
+func TestFluxABalanceFetcherRejectsNullCustomExchangeRate(t *testing.T) {
+	server := newFluxABalanceTestServer(t, `{"quota_per_unit":500000,"quota_display_type":"CUSTOM","custom_currency_exchange_rate":null}`, `{"quota":1}`)
+	defer server.Close()
+
+	_, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
+	if !errors.Is(err, ErrFluxAUnavailable) {
+		t.Fatalf("balance error = %v, want ErrFluxAUnavailable", err)
+	}
+}
+
+func TestFluxABalanceFetcherAcceptsUSDCustomAndTokens(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusData string
+		wantType   string
+	}{
+		{name: "USD", statusData: `{"quota_per_unit":500000,"quota_display_type":"USD"}`, wantType: "USD"},
+		{name: "CUSTOM", statusData: `{"quota_per_unit":500000,"quota_display_type":"CUSTOM","custom_currency_exchange_rate":1.5}`, wantType: "CUSTOM"},
+		{name: "TOKENS", statusData: `{"quota_per_unit":500000,"quota_display_type":"TOKENS"}`, wantType: "TOKENS"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newFluxABalanceTestServer(t, tt.statusData, `{"quota":7400000}`)
+			defer server.Close()
+
+			got, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
+			if err != nil {
+				t.Fatalf("balance: %v", err)
+			}
+			if got.DisplayType != tt.wantType || got.Quota != 7_400_000 || got.QuotaPerUnit != 500_000 {
+				t.Fatalf("balance = %#v, want %s balance configuration", got, tt.wantType)
+			}
+		})
+	}
+}
+
+func TestFluxABalanceFetcherRejectsUnsupportedDisplayType(t *testing.T) {
+	server := newFluxABalanceTestServer(t, `{"quota_per_unit":500000,"quota_display_type":"EUR"}`, `{"quota":1}`)
+	defer server.Close()
+
+	_, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
+	if !errors.Is(err, ErrFluxAUnavailable) {
+		t.Fatalf("balance error = %v, want ErrFluxAUnavailable", err)
+	}
+}
+
+func newFluxABalanceTestServer(t *testing.T, statusData, selfData string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/status":
+			_, _ = w.Write([]byte(`{"success":true,"data":` + statusData + `}`))
+		case "/api/user/self":
+			_, _ = w.Write([]byte(`{"success":true,"data":` + selfData + `}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}

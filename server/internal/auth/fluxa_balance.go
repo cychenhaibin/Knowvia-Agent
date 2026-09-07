@@ -30,15 +30,15 @@ type fluxABalanceFetcher struct {
 }
 
 type fluxABalanceStatusData struct {
-	QuotaPerUnit               float64 `json:"quota_per_unit"`
-	DisplayType                string  `json:"quota_display_type"`
-	USDExchangeRate            float64 `json:"usd_exchange_rate"`
-	CustomCurrencySymbol       string  `json:"custom_currency_symbol"`
-	CustomCurrencyExchangeRate float64 `json:"custom_currency_exchange_rate"`
+	QuotaPerUnit               *float64 `json:"quota_per_unit"`
+	DisplayType                string   `json:"quota_display_type"`
+	USDExchangeRate            *float64 `json:"usd_exchange_rate"`
+	CustomCurrencySymbol       string   `json:"custom_currency_symbol"`
+	CustomCurrencyExchangeRate *float64 `json:"custom_currency_exchange_rate"`
 }
 
 type fluxABalanceSelfData struct {
-	Quota float64 `json:"quota"`
+	Quota *float64 `json:"quota"`
 }
 
 func NewFluxABalanceFetcher(paidOrigin, freeOrigin string) FluxABalanceFetcher {
@@ -97,10 +97,17 @@ func (f *fluxABalanceFetcher) Balance(ctx context.Context, site FluxASite, acces
 		return FluxABalance{}, err
 	}
 	var self fluxABalanceSelfData
-	if err := decodeFluxABalanceData(selfData, &self); err != nil || !finite(self.Quota) {
+	if err := decodeFluxABalanceData(selfData, &self); err != nil || self.Quota == nil || !finite(*self.Quota) {
 		return FluxABalance{}, ErrFluxAUnavailable
 	}
-	return FluxABalance{Quota: self.Quota, QuotaPerUnit: status.QuotaPerUnit, DisplayType: strings.TrimSpace(status.DisplayType), USDExchangeRate: status.USDExchangeRate, CustomCurrencySymbol: strings.TrimSpace(status.CustomCurrencySymbol), CustomCurrencyExchangeRate: status.CustomCurrencyExchangeRate}, nil
+	balance := FluxABalance{Quota: *self.Quota, QuotaPerUnit: *status.QuotaPerUnit, DisplayType: strings.TrimSpace(status.DisplayType), CustomCurrencySymbol: strings.TrimSpace(status.CustomCurrencySymbol)}
+	if status.USDExchangeRate != nil {
+		balance.USDExchangeRate = *status.USDExchangeRate
+	}
+	if status.CustomCurrencyExchangeRate != nil {
+		balance.CustomCurrencyExchangeRate = *status.CustomCurrencyExchangeRate
+	}
+	return balance, nil
 }
 
 func (f *fluxABalanceFetcher) get(ctx context.Context, endpoint, accessToken string) (json.RawMessage, error) {
@@ -151,16 +158,16 @@ func decodeFluxABalanceData(raw json.RawMessage, target any) error {
 func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }
 
 func validFluxABalanceStatus(status fluxABalanceStatusData) bool {
-	if !finite(status.QuotaPerUnit) || status.QuotaPerUnit <= 0 {
+	if status.QuotaPerUnit == nil || !finite(*status.QuotaPerUnit) || *status.QuotaPerUnit <= 0 {
 		return false
 	}
 	switch strings.TrimSpace(status.DisplayType) {
 	case "USD", "TOKENS":
 		return true
 	case "CNY":
-		return finite(status.USDExchangeRate)
+		return status.USDExchangeRate != nil && finite(*status.USDExchangeRate)
 	case "CUSTOM":
-		return finite(status.CustomCurrencyExchangeRate)
+		return status.CustomCurrencyExchangeRate != nil && finite(*status.CustomCurrencyExchangeRate)
 	default:
 		return false
 	}
