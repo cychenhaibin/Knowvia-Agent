@@ -7,6 +7,15 @@ import (
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/auth"
 )
 
+type fluxABalanceResponse struct {
+	Quota                      float64 `json:"quota"`
+	QuotaPerUnit               float64 `json:"quotaPerUnit"`
+	QuotaDisplayType           string  `json:"quotaDisplayType"`
+	USDExchangeRate            float64 `json:"usdExchangeRate"`
+	CustomCurrencySymbol       string  `json:"customCurrencySymbol"`
+	CustomCurrencyExchangeRate float64 `json:"customCurrencyExchangeRate"`
+}
+
 func (h *Handler) fluxABalance(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r.Context())
 	balance, err := h.authService.GetFluxABalance(r.Context(), user.ID, auth.FluxASitePaid)
@@ -26,5 +35,12 @@ func (h *Handler) fluxABalance(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, balance)
+	writeJSON(w, http.StatusOK, fluxABalanceResponse{
+		Quota:                      balance.Quota,
+		QuotaPerUnit:               balance.QuotaPerUnit,
+		QuotaDisplayType:           balance.DisplayType,
+		USDExchangeRate:            balance.USDExchangeRate,
+		CustomCurrencySymbol:       balance.CustomCurrencySymbol,
+		CustomCurrencyExchangeRate: balance.CustomCurrencyExchangeRate,
+	})
 }
