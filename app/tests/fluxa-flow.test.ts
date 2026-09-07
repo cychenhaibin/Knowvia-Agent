@@ -251,6 +251,158 @@ test('returns null for invalid FluxA balance values', () => {
   assert.equal(formatFluxABalance(invalidBalance), null);
 });
 
+test('formats FluxA balances when unrelated conversion settings are invalid', () => {
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 0,
+        quotaDisplayType: 'TOKENS',
+        usdExchangeRate: Number.NaN,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: Number.POSITIVE_INFINITY,
+      },
+      'en-US',
+    ),
+    '7,400,000',
+  );
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'USD',
+        usdExchangeRate: Number.NaN,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: Number.POSITIVE_INFINITY,
+      },
+      'en-US',
+    ),
+    '$14.80',
+  );
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'CNY',
+        usdExchangeRate: 7.2,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: Number.POSITIVE_INFINITY,
+      },
+      'zh-CN',
+    ),
+    '¥106.56',
+  );
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'CUSTOM',
+        usdExchangeRate: Number.POSITIVE_INFINITY,
+        customCurrencySymbol: 'K',
+        customCurrencyExchangeRate: 2,
+      },
+      'en-US',
+    ),
+    'K29.6',
+  );
+});
+
+test('formats FluxA balances when unrelated conversion settings are absent', () => {
+  assert.equal(
+    formatFluxABalance(
+      {quota: 7_400_000, quotaDisplayType: 'TOKENS'} as unknown as FluxABalance,
+      'en-US',
+    ),
+    '7,400,000',
+  );
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'USD',
+      } as unknown as FluxABalance,
+      'en-US',
+    ),
+    '$14.80',
+  );
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'CNY',
+        usdExchangeRate: 7.2,
+      } as unknown as FluxABalance,
+      'zh-CN',
+    ),
+    '¥106.56',
+  );
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'CUSTOM',
+        customCurrencySymbol: 'K',
+        customCurrencyExchangeRate: 2,
+      } as unknown as FluxABalance,
+      'en-US',
+    ),
+    'K29.6',
+  );
+});
+
+test('returns null when a FluxA balance lacks a display type required input', () => {
+  assert.equal(
+    formatFluxABalance({
+      quota: Number.NaN,
+      quotaPerUnit: 0,
+      quotaDisplayType: 'TOKENS',
+      usdExchangeRate: 1,
+      customCurrencySymbol: '',
+      customCurrencyExchangeRate: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    formatFluxABalance({
+      quota: 7_400_000,
+      quotaPerUnit: 0,
+      quotaDisplayType: 'USD',
+      usdExchangeRate: 1,
+      customCurrencySymbol: '',
+      customCurrencyExchangeRate: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    formatFluxABalance({
+      quota: 7_400_000,
+      quotaPerUnit: 500_000,
+      quotaDisplayType: 'CNY',
+      usdExchangeRate: Number.POSITIVE_INFINITY,
+      customCurrencySymbol: '',
+      customCurrencyExchangeRate: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    formatFluxABalance({
+      quota: 7_400_000,
+      quotaPerUnit: 500_000,
+      quotaDisplayType: 'CUSTOM',
+      usdExchangeRate: 1,
+      customCurrencySymbol: 'K',
+      customCurrencyExchangeRate: Number.NaN,
+    }),
+    null,
+  );
+});
+
 test('FluxA service details switch between configuration and account groups without credential fields', () => {
   const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
 
