@@ -53,6 +53,10 @@ type FluxAModelsFetcher interface {
 	Models(context.Context, FluxASite, string, string) ([]FluxAModel, error)
 }
 
+type FluxABalanceFetcher interface {
+	Balance(context.Context, FluxASite, string) (FluxABalance, error)
+}
+
 type ServiceDeps struct {
 	Users              UserStore
 	Identities         AuthIdentityStore
@@ -63,4 +67,5 @@ type ServiceDeps struct {
 	FluxACredentials   FluxACredentialStore
 	FluxACipher        FluxACredentialCipher
 	FluxAModels        FluxAModelGroupsFetcher
+	FluxABalance       FluxABalanceFetcher
 }
