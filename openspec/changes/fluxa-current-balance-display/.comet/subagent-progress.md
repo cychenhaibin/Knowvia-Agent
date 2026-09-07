@@ -1,0 +1,21 @@
+# 子代理执行检查点
+
+- 当前计划任务：Task 4: 在资料页展示当前余额
+- 映射 OpenSpec 任务：3.1、3.2、3.3
+- 阶段：final-review
+- 实施代理：`/root/task4_profile_balance`
+- 实施提交：8c5fd67
+- 变更文件：`app/modules/profile/screens/ProfileScreen.tsx`、`app/store/auth.ts`、`app/tests/fluxa-flow.test.ts`
+- RED：`cd app && npm test -- fluxa-flow.test.ts`（3 个预期失败）
+- GREEN：`cd app && npm test -- fluxa-flow.test.ts`（32/32 通过）
+- 风险信号：缓存清理和认证令牌调用边界；已按 standard 模式派发任务审查。
+- 审查代理：`/root/task4_standard_reviewer`
+- 首轮审查：FAIL；发现刷新失败保留旧缓存时仍展示余额。
+- 修复提交：37fd3d9（在 `isError` 时隐藏余额；新增 QueryClient 状态序列回归测试）。
+- 修复 RED：`cd app && npm test -- fluxa-flow.test.ts`（1 个预期失败）
+- 修复 GREEN：`cd app && npm test -- fluxa-flow.test.ts`（36/36 通过）；`cd app && npx tsc --noEmit`（通过）
+- 复审代理：`/root/task4_fix_rereviewer`
+- 复审结论：Spec PASS；Quality PASS；无 Critical/Important。
+- 审查模式：standard
+- TDD：tdd（须提供 RED/GREEN 证据）
+- 基线提交：129f821fdea32f76755157cb0861e8e56f1d7aa4

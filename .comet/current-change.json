@@ -1,0 +1,6 @@
+{
+  "schema": "comet.selection.v2",
+  "workflow": "classic",
+  "change": "fluxa-current-balance-display",
+  "branch": "main"
+}
