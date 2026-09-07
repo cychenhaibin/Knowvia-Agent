@@ -10,6 +10,9 @@ import (
 func (s *MemoryStore) CreateRun(_ context.Context, run domain.Run) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if run.Kind == "" {
+		run.Kind = domain.RunKindResearch
+	}
 	s.runs[run.ID] = run
 	return nil
 }
@@ -21,6 +24,9 @@ func (s *MemoryStore) GetRun(_ context.Context, userID, runID string) (domain.Ru
 	if !ok || run.UserID != userID {
 		return domain.Run{}, ErrNotFound
 	}
+	if run.Kind == "" {
+		run.Kind = domain.RunKindResearch
+	}
 	return run, nil
 }
 
@@ -31,12 +37,18 @@ func (s *MemoryStore) GetRunByID(_ context.Context, runID string) (domain.Run, e
 	if !ok {
 		return domain.Run{}, ErrNotFound
 	}
+	if run.Kind == "" {
+		run.Kind = domain.RunKindResearch
+	}
 	return run, nil
 }
 
 func (s *MemoryStore) UpdateRun(_ context.Context, run domain.Run) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if run.Kind == "" {
+		run.Kind = domain.RunKindResearch
+	}
 	s.runs[run.ID] = run
 	return nil
 }
@@ -47,6 +59,9 @@ func (s *MemoryStore) ListRuns(_ context.Context, userID string) ([]domain.Run, 
 	runs := make([]domain.Run, 0, len(s.runs))
 	for _, run := range s.runs {
 		if run.UserID == userID {
+			if run.Kind == "" {
+				run.Kind = domain.RunKindResearch
+			}
 			runs = append(runs, run)
 		}
 	}

@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/adapters/store"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/chat"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/domain"
+	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/gitrepo"
 	"github.com/chenhaibin/yuque-rag/quickque-agent/server/internal/tools"
 )
 
@@ -76,6 +78,157 @@ func TestCreateRunResolvesDefaultSkillInstallationByDefinition(t *testing.T) {
 	}
 	if created.SkillInstallationID != "install-1" {
 		t.Fatalf("expected default installation install-1, got %s", created.SkillInstallationID)
+	}
+}
+
+func TestCreateRunWithGitHubURLCreatesTaskSessionAndPrompt(t *testing.T) {
+	mem := store.NewMemoryStore()
+	service := NewService(ServiceDeps{
+		Runs:         mem,
+		Steps:        mem,
+		Artifacts:    mem,
+		Sources:      mem,
+		Skills:       mem,
+		Selection:    mem,
+		TaskSessions: mem,
+	}, nil, NewEventBroker(), NewPlanner(), nil, nil, nil, nil, nil)
+
+	user := domain.User{ID: "user-1", Username: "tester", CreatedAt: time.Now().UTC()}
+	if err := mem.UpsertUser(context.Background(), user); err != nil {
+		t.Fatalf("upsert user: %v", err)
+	}
+
+	created, err := service.CreateRun(context.Background(), user.ID, CreateRunInput{
+		Goal: "https://github.com/bytedance/trae-agent 分析并理解这个项目仓库，生成结构化的完整的Code Wiki文档(md文件)",
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	if created.Kind != domain.RunKindGitHubRepoAnalysis {
+		t.Fatalf("expected github repo analysis run, got %s", created.Kind)
+	}
+	if created.SourceURL != "https://github.com/bytedance/trae-agent" {
+		t.Fatalf("expected normalized source url, got %s", created.SourceURL)
+	}
+	if created.TaskSessionID == "" {
+		t.Fatalf("expected task session id")
+	}
+	if !strings.Contains(created.TaskPrompt, "https://github.com/bytedance/trae-agent") {
+		t.Fatalf("expected task prompt to include repo URL, got %q", created.TaskPrompt)
+	}
+	if !strings.Contains(created.TaskPrompt, "Code Wiki") {
+		t.Fatalf("expected task prompt to include Code Wiki instructions, got %q", created.TaskPrompt)
+	}
+
+	session, err := mem.GetChatSession(context.Background(), user.ID, created.TaskSessionID)
+	if err != nil {
+		t.Fatalf("get task session: %v", err)
+	}
+	if session.Kind != domain.ChatSessionKindTask {
+		t.Fatalf("expected task session kind, got %s", session.Kind)
+	}
+	if session.RunID != created.ID {
+		t.Fatalf("expected task session run id %s, got %s", created.ID, session.RunID)
+	}
+
+	recentSessions, err := mem.ListChatSessions(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("list chat sessions: %v", err)
+	}
+	if len(recentSessions) != 0 {
+		t.Fatalf("expected task session to be hidden from recent sessions, got %#v", recentSessions)
+	}
+}
+
+func TestRunTaskConversationGeneratesCodeWikiArtifact(t *testing.T) {
+	mem := store.NewMemoryStore()
+	analyzer := &fakeGitHubAnalyzer{
+		result: gitrepo.AnalyzeResult{
+			Scan: gitrepo.WorkspaceScan{
+				RepoURL:   "https://github.com/bytedance/trae-agent",
+				Languages: []string{"Python"},
+				KeyFiles: []gitrepo.FileSummary{
+					{Path: "README.md", Language: "Markdown", Excerpt: "# Trae Agent"},
+				},
+			},
+			Markdown: "# Code Wiki\n\n## 项目整体架构\n\nTrae Agent architecture.",
+		},
+	}
+	service := NewService(ServiceDeps{
+		Runs:         mem,
+		Steps:        mem,
+		Artifacts:    mem,
+		Sources:      mem,
+		Skills:       mem,
+		Selection:    mem,
+		TaskSessions: mem,
+	}, nil, NewEventBroker(), NewPlanner(), nil, nil, nil, nil, nil)
+	service.SetGitHubAnalyzer(analyzer)
+
+	user := domain.User{ID: "user-1", Username: "tester", CreatedAt: time.Now().UTC()}
+	if err := mem.UpsertUser(context.Background(), user); err != nil {
+		t.Fatalf("upsert user: %v", err)
+	}
+	run, err := service.CreateRun(context.Background(), user.ID, CreateRunInput{
+		Goal: "https://github.com/bytedance/trae-agent 生成 Code Wiki",
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	chunks := []string{}
+	result, err := service.RunTaskConversation(
+		context.Background(),
+		chat.TaskConversationRequest{
+			UserID:    user.ID,
+			RunID:     run.ID,
+			SessionID: run.TaskSessionID,
+			Message:   run.TaskPrompt,
+		},
+		func(chunk string) error {
+			chunks = append(chunks, chunk)
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("run task conversation: %v", err)
+	}
+	if !result.Handled {
+		t.Fatalf("expected task conversation to be handled")
+	}
+	if !strings.Contains(result.Answer, "# Code Wiki") {
+		t.Fatalf("expected code wiki answer, got %q", result.Answer)
+	}
+	if strings.Join(chunks, "") != result.Answer {
+		t.Fatalf("expected chunks to stream answer, got %#v", chunks)
+	}
+	if analyzer.request.RepoURL != "https://github.com/bytedance/trae-agent" {
+		t.Fatalf("expected analyzer repo URL, got %s", analyzer.request.RepoURL)
+	}
+
+	storedRun, err := mem.GetRun(context.Background(), user.ID, run.ID)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if storedRun.Status != domain.RunStatusCompleted {
+		t.Fatalf("expected completed run, got %s", storedRun.Status)
+	}
+	if storedRun.LatestArtifactID == "" {
+		t.Fatalf("expected latest artifact id")
+	}
+	artifacts, err := mem.ListArtifacts(context.Background(), run.ID)
+	if err != nil {
+		t.Fatalf("list artifacts: %v", err)
+	}
+	if len(artifacts) != 1 {
+		t.Fatalf("expected one code wiki artifact, got %d", len(artifacts))
+	}
+	if artifacts[0].Kind != domain.ArtifactKindCodeWiki {
+		t.Fatalf("expected code wiki artifact, got %s", artifacts[0].Kind)
+	}
+	if artifacts[0].ContentMarkdown != result.Answer {
+		t.Fatalf("expected artifact content to match answer")
 	}
 }
 
@@ -346,4 +499,14 @@ func (m *capturingEvidenceMerger) Merge(
 		GroupLabels:    append([]string(nil), m.result.GroupLabels...),
 		Warnings:       append([]string(nil), m.result.Warnings...),
 	}, nil
+}
+
+type fakeGitHubAnalyzer struct {
+	request gitrepo.AnalyzeRequest
+	result  gitrepo.AnalyzeResult
+}
+
+func (a *fakeGitHubAnalyzer) Analyze(_ context.Context, req gitrepo.AnalyzeRequest) (gitrepo.AnalyzeResult, error) {
+	a.request = req
+	return a.result, nil
 }

@@ -10,6 +10,9 @@ import (
 func (s *MemoryStore) CreateChatSession(_ context.Context, session domain.ChatSession) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if session.Kind == "" {
+		session.Kind = domain.ChatSessionKindChat
+	}
 	s.chatSessions[session.ID] = session
 	return nil
 }
@@ -20,6 +23,9 @@ func (s *MemoryStore) GetChatSession(_ context.Context, userID, sessionID string
 	session, ok := s.chatSessions[sessionID]
 	if !ok || session.UserID != userID {
 		return domain.ChatSession{}, ErrNotFound
+	}
+	if session.Kind == "" {
+		session.Kind = domain.ChatSessionKindChat
 	}
 	return session, nil
 }
@@ -39,7 +45,10 @@ func (s *MemoryStore) ListChatSessions(_ context.Context, userID string) ([]doma
 	defer s.mu.RUnlock()
 	sessions := []domain.ChatSession{}
 	for _, session := range s.chatSessions {
-		if session.UserID == userID {
+		if session.Kind == "" {
+			session.Kind = domain.ChatSessionKindChat
+		}
+		if session.UserID == userID && session.Kind == domain.ChatSessionKindChat {
 			sessions = append(sessions, session)
 		}
 	}

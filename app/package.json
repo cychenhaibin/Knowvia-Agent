@@ -12,6 +12,9 @@
     "web": "EXPO_NO_TYPESCRIPT_SETUP=1 expo start --web",
     "update:icon": "bash ./update-icon.sh",
     "build:android": "bash ./build_android.sh release",
+    "build:android:patch": "bash ./build_android.sh release --type patch",
+    "build:android:minor": "bash ./build_android.sh release --type minor",
+    "build:android:major": "bash ./build_android.sh release --type major",
     "build:android:debug": "bash ./build_android.sh debug",
     "build:android:release": "bash ./build_android.sh release",
     "build:android:aab": "bash ./build_android.sh aab"

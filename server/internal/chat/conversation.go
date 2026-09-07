@@ -110,6 +110,50 @@ func (s *Service) StreamConversation(
 		skillSnapshot = &snapshot
 	}
 
+	if session.Kind == domain.ChatSessionKindTask && strings.TrimSpace(session.RunID) != "" && s.taskRunner != nil {
+		taskResult, taskErr := s.taskRunner.RunTaskConversation(
+			ctx,
+			TaskConversationRequest{
+				UserID:    req.UserID,
+				RunID:     session.RunID,
+				SessionID: session.ID,
+				Message:   req.Message,
+				Runtime:   req.Runtime,
+			},
+			hooks.OnChunk,
+		)
+		if taskResult.Handled || taskErr != nil {
+			finishedAt := time.Now().UTC()
+			answer := strings.TrimSpace(taskResult.Answer)
+			if taskErr != nil {
+				answer = taskErr.Error()
+			}
+			assistantMessage.Content = answer
+			assistantMessage.Usage = taskResult.Usage
+			assistantMessage.CompletedAt = &finishedAt
+			if err := s.conversationStore.SaveChatMessage(ctx, assistantMessage); err != nil {
+				return StreamConversationResult{}, err
+			}
+			session.LastMessageAt = &finishedAt
+			session.UpdatedAt = finishedAt
+			if err := s.conversationStore.UpdateChatSession(ctx, session); err != nil {
+				return StreamConversationResult{}, err
+			}
+			result := StreamConversationResult{
+				Session:          session,
+				UserMessage:      userMessage,
+				AssistantMessage: assistantMessage,
+				SkillSnapshot:    skillSnapshot,
+				Answer:           answer,
+				Usage:            taskResult.Usage,
+			}
+			if taskErr != nil {
+				return result, taskErr
+			}
+			return result, nil
+		}
+	}
+
 	sources := []domain.Evidence{}
 	answer := ""
 	var usage *domain.ChatUsage
@@ -231,6 +275,7 @@ func ensureChatSession(ctx context.Context, st ConversationStore, userID, sessio
 		ID:        uuid.NewString(),
 		UserID:    userID,
 		Title:     fallbackSessionTitle("", firstMessage),
+		Kind:      domain.ChatSessionKindChat,
 		Pinned:    false,
 		CreatedAt: now,
 		UpdatedAt: now,

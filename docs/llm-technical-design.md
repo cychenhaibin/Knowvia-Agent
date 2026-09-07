@@ -704,3 +704,55 @@ Knowvia 的 `llm` 最终不应该被定义成“语雀 RAG 服务”，而应该
 - 同时服务 `Knowledge Chat` 和 `Run / Report`
 
 只有这样，QuickQue 的最终产品目标才会真正收敛成一套认知系统，而不是“一个 Run 系统 + 一个知识聊天外挂”。
+
+## 16. GitHub Repo Analysis 任务链路
+
+GitHub Repo Analysis 是 Run 系统中的专用任务类型，用来处理“分析 GitHub 仓库并生成 Code Wiki Markdown 文档”这类请求。
+
+### 16.1 交互流程
+
+用户在任务创建页输入 GitHub 仓库地址和目标后，前端仍然调用 Go 的 `POST /v1/runs`。Go 识别 `github.com/{owner}/{repo}` URL 后：
+
+1. 创建 `kind=github_repo_analysis` 的 Run。
+2. 创建 `kind=task` 的任务会话，并通过 `run_id` 绑定 Run。
+3. 生成 `task_prompt`，返回给前端。
+4. 前端跳转到聊天页，选中任务会话，并自动发送 `task_prompt`。
+5. 普通最近会话列表只展示 `kind=chat` 的会话，任务会话留在历史任务里。
+
+这条链路的关键变化是：Run 不再要求用户停留在创建页等待结果，而是进入一个任务绑定的新对话继续推进。
+
+### 16.2 Go 与 LLM 分工
+
+Go 负责确定性工程动作：
+
+- 识别 GitHub URL，生成任务 prompt。
+- 创建 Run、任务会话、timeline step 和 artifact。
+- Clone public repo 到临时目录。
+- 只读扫描文件树，跳过 `.git`、`node_modules`、`dist`、二进制、大文件和敏感文件。
+- 提取 README、manifest、入口文件和核心源码摘录。
+- 将最终 Markdown 保存为 `code_wiki` artifact。
+
+LLM 负责认知综合：
+
+- 基于 Go 提供的目录树、语言信息、运行命令线索和关键文件摘录生成 Code Wiki。
+- 解释整体架构、模块职责、关键类/函数、依赖关系、运行方式、测试方式和扩展点。
+- 在上下文不足时明确写出限制，不编造未扫描文件的细节。
+
+如果本地没有可用模型，Go 会生成 deterministic fallback Code Wiki，确保任务仍能产生产物。
+
+### 16.3 数据模型
+
+- `runs.kind`: `research` 或 `github_repo_analysis`。
+- `runs.source_url`: 规范化后的 GitHub 仓库地址。
+- `runs.task_session_id`: 任务会话 ID。
+- `runs.task_prompt`: 前端自动发送的启动 prompt。
+- `chat_sessions.kind`: `chat` 或 `task`。
+- `chat_sessions.run_id`: 任务会话所属 Run。
+- `run_artifacts.kind`: 新增 `code_wiki`。
+
+### 16.4 MVP 限制
+
+- 默认只支持 public GitHub repository。
+- 只读取仓库文件，不执行仓库代码。
+- 目前按关键文件摘录生成 Code Wiki，大型仓库不会一次性覆盖所有文件。
+- 后续可扩展为仓库切块入库，支持任务会话中的多轮精准追问。

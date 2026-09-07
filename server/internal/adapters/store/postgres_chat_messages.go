@@ -12,58 +12,76 @@ import (
 )
 
 func (s *PostgresStore) CreateChatSession(ctx context.Context, session domain.ChatSession) error {
-	_, err := s.queries.CreateChatSession(ctx, sqldb.CreateChatSessionParams{
-		ID:            session.ID,
-		UserID:        session.UserID,
-		Title:         session.Title,
-		Pinned:        session.Pinned,
-		LastMessageAt: pgNullableTimestamptz(session.LastMessageAt),
-		CreatedAt:     pgTimestamptz(session.CreatedAt),
-		UpdatedAt:     pgTimestamptz(session.UpdatedAt),
-	})
+	if session.Kind == "" {
+		session.Kind = domain.ChatSessionKindChat
+	}
+	_, err := s.pool.Exec(ctx, `
+INSERT INTO chat_sessions (id, user_id, title, kind, run_id, pinned, last_message_at, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`, session.ID, session.UserID, session.Title, string(session.Kind), session.RunID, session.Pinned,
+		pgNullableTimestamptz(session.LastMessageAt), pgTimestamptz(session.CreatedAt), pgTimestamptz(session.UpdatedAt))
 	return err
 }
 
 func (s *PostgresStore) GetChatSession(ctx context.Context, userID, sessionID string) (domain.ChatSession, error) {
-	session, err := s.queries.GetChatSession(ctx, sqldb.GetChatSessionParams{
-		ID:     sessionID,
-		UserID: userID,
-	})
+	row := s.pool.QueryRow(ctx, `
+SELECT id, user_id, title, kind, run_id, pinned, last_message_at, created_at, updated_at
+FROM chat_sessions
+WHERE id = $1 AND user_id = $2
+`, sessionID, userID)
+	session, err := scanChatSession(row)
 	if err != nil {
 		return domain.ChatSession{}, normalizeError(err)
 	}
-	return mapDBChatSession(session), nil
+	return session, nil
 }
 
 func (s *PostgresStore) UpdateChatSession(ctx context.Context, session domain.ChatSession) error {
-	rowsAffected, err := s.queries.UpdateChatSession(ctx, sqldb.UpdateChatSessionParams{
-		ID:            session.ID,
-		UserID:        session.UserID,
-		Title:         session.Title,
-		Pinned:        session.Pinned,
-		LastMessageAt: pgNullableTimestamptz(session.LastMessageAt),
-		CreatedAt:     pgTimestamptz(session.CreatedAt),
-		UpdatedAt:     pgTimestamptz(session.UpdatedAt),
-	})
+	if session.Kind == "" {
+		session.Kind = domain.ChatSessionKindChat
+	}
+	tag, err := s.pool.Exec(ctx, `
+UPDATE chat_sessions
+SET user_id = $2,
+    title = $3,
+    kind = $4,
+    run_id = $5,
+    pinned = $6,
+    last_message_at = $7,
+    created_at = $8,
+    updated_at = $9
+WHERE id = $1
+`, session.ID, session.UserID, session.Title, string(session.Kind), session.RunID, session.Pinned,
+		pgNullableTimestamptz(session.LastMessageAt), pgTimestamptz(session.CreatedAt), pgTimestamptz(session.UpdatedAt))
 	if err != nil {
 		return err
 	}
-	if rowsAffected == 0 {
+	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
 	return nil
 }
 
 func (s *PostgresStore) ListChatSessions(ctx context.Context, userID string) ([]domain.ChatSession, error) {
-	rows, err := s.queries.ListChatSessions(ctx, userID)
+	rows, err := s.pool.Query(ctx, `
+SELECT id, user_id, title, kind, run_id, pinned, last_message_at, created_at, updated_at
+FROM chat_sessions
+WHERE user_id = $1 AND kind = 'chat'
+ORDER BY pinned DESC, COALESCE(last_message_at, created_at) DESC, updated_at DESC
+`, userID)
 	if err != nil {
 		return nil, err
 	}
-	sessions := make([]domain.ChatSession, 0, len(rows))
-	for _, row := range rows {
-		sessions = append(sessions, mapDBChatSession(row))
+	defer rows.Close()
+	sessions := make([]domain.ChatSession, 0)
+	for rows.Next() {
+		session, err := scanChatSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
 	}
-	return sessions, nil
+	return sessions, rows.Err()
 }
 
 func (s *PostgresStore) DeleteChatSession(ctx context.Context, userID, sessionID string) error {
@@ -165,16 +183,37 @@ func (s *PostgresStore) ListChatMessageSources(ctx context.Context, messageID st
 	return sources, nil
 }
 
-func mapDBChatSession(session sqldb.ChatSession) domain.ChatSession {
-	return domain.ChatSession{
-		ID:            session.ID,
-		UserID:        session.UserID,
-		Title:         session.Title,
-		Pinned:        session.Pinned,
-		LastMessageAt: pgNullableTimestamptzPtr(session.LastMessageAt),
-		CreatedAt:     pgTimestamptzValue(session.CreatedAt),
-		UpdatedAt:     pgTimestamptzValue(session.UpdatedAt),
+type chatSessionScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanChatSession(scanner chatSessionScanner) (domain.ChatSession, error) {
+	var session domain.ChatSession
+	var kind string
+	var lastMessageAt pgtype.Timestamptz
+	var createdAt pgtype.Timestamptz
+	var updatedAt pgtype.Timestamptz
+	if err := scanner.Scan(
+		&session.ID,
+		&session.UserID,
+		&session.Title,
+		&kind,
+		&session.RunID,
+		&session.Pinned,
+		&lastMessageAt,
+		&createdAt,
+		&updatedAt,
+	); err != nil {
+		return domain.ChatSession{}, err
 	}
+	session.Kind = domain.ChatSessionKind(kind)
+	if session.Kind == "" {
+		session.Kind = domain.ChatSessionKindChat
+	}
+	session.LastMessageAt = pgNullableTimestamptzPtr(lastMessageAt)
+	session.CreatedAt = pgTimestamptzValue(createdAt)
+	session.UpdatedAt = pgTimestamptzValue(updatedAt)
+	return session, nil
 }
 
 func mapDBChatMessage(message sqldb.ChatMessage) domain.ChatMessage {

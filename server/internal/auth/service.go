@@ -19,6 +19,9 @@ var ErrGoogleKeysUnavailable = errors.New("google public keys are unavailable")
 var ErrMicrosoftAuthDisabled = errors.New("microsoft auth is not configured")
 var ErrInvalidMicrosoftToken = errors.New("invalid microsoft access token")
 var ErrMicrosoftIdentityUnavailable = errors.New("microsoft identity service is unavailable")
+var ErrWeChatAuthDisabled = errors.New("wechat auth is not configured")
+var ErrInvalidWeChatCode = errors.New("invalid wechat authorization code")
+var ErrWeChatIdentityUnavailable = errors.New("wechat identity service is unavailable")
 
 type Service struct {
 	userStore         UserStore
@@ -28,6 +31,7 @@ type Service struct {
 	cfg               config.Config
 	googleVerifier    GoogleTokenVerifier
 	microsoftVerifier MicrosoftTokenVerifier
+	wechatExchanger   WeChatCodeExchanger
 }
 
 var nonExpiringSessionExpiresAt = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
@@ -38,6 +42,7 @@ func NewService(deps ServiceDeps, cfg config.Config) *Service {
 		cfg,
 		NewGoogleTokenVerifier(cfg.GoogleWebClientID),
 		NewMicrosoftTokenVerifier(cfg.MicrosoftClientID, cfg.MicrosoftTenantID),
+		NewWeChatCodeExchanger(cfg.WeChatAppID, cfg.WeChatAppSecret),
 	)
 }
 
@@ -47,6 +52,7 @@ func NewServiceWithGoogleVerifier(deps ServiceDeps, cfg config.Config, verifier 
 		cfg,
 		verifier,
 		NewMicrosoftTokenVerifier(cfg.MicrosoftClientID, cfg.MicrosoftTenantID),
+		NewWeChatCodeExchanger(cfg.WeChatAppID, cfg.WeChatAppSecret),
 	)
 }
 
@@ -56,6 +62,17 @@ func NewServiceWithMicrosoftVerifier(deps ServiceDeps, cfg config.Config, verifi
 		cfg,
 		NewGoogleTokenVerifier(cfg.GoogleWebClientID),
 		verifier,
+		NewWeChatCodeExchanger(cfg.WeChatAppID, cfg.WeChatAppSecret),
+	)
+}
+
+func NewServiceWithWeChatExchanger(deps ServiceDeps, cfg config.Config, exchanger WeChatCodeExchanger) *Service {
+	return NewServiceWithVerifiers(
+		deps,
+		cfg,
+		NewGoogleTokenVerifier(cfg.GoogleWebClientID),
+		NewMicrosoftTokenVerifier(cfg.MicrosoftClientID, cfg.MicrosoftTenantID),
+		exchanger,
 	)
 }
 
@@ -64,6 +81,7 @@ func NewServiceWithVerifiers(
 	cfg config.Config,
 	googleVerifier GoogleTokenVerifier,
 	microsoftVerifier MicrosoftTokenVerifier,
+	wechatExchanger WeChatCodeExchanger,
 ) *Service {
 	return &Service{
 		userStore:         deps.Users,
@@ -73,6 +91,7 @@ func NewServiceWithVerifiers(
 		cfg:               cfg,
 		googleVerifier:    googleVerifier,
 		microsoftVerifier: microsoftVerifier,
+		wechatExchanger:   wechatExchanger,
 	}
 }
 

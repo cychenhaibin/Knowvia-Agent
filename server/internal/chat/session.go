@@ -28,6 +28,7 @@ func (s *Service) CreateSession(ctx context.Context, userID, title string) (doma
 		ID:        uuid.NewString(),
 		UserID:    userID,
 		Title:     fallbackSessionTitle(strings.TrimSpace(title), ""),
+		Kind:      domain.ChatSessionKindChat,
 		Pinned:    false,
 		CreatedAt: now,
 		UpdatedAt: now,

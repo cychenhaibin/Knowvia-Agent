@@ -13,8 +13,12 @@ type runListDTO struct {
 type runDTO struct {
 	ID                     string           `json:"id"`
 	UserID                 string           `json:"userId"`
+	Kind                   domain.RunKind   `json:"kind"`
 	Title                  string           `json:"title"`
 	Goal                   string           `json:"goal"`
+	SourceURL              string           `json:"sourceUrl,omitempty"`
+	TaskSessionID          string           `json:"taskSessionId,omitempty"`
+	TaskPrompt             string           `json:"taskPrompt,omitempty"`
 	RequestedMode          domain.RunMode   `json:"requestedMode"`
 	KnowledgeConnectionIDs []string         `json:"knowledgeConnectionIds,omitempty"`
 	SkillInstallationID    string           `json:"skillInstallationId,omitempty"`
@@ -95,8 +99,12 @@ func mapRun(run domain.Run) runDTO {
 	return runDTO{
 		ID:                     run.ID,
 		UserID:                 run.UserID,
+		Kind:                   run.Kind,
 		Title:                  run.Title,
 		Goal:                   run.Goal,
+		SourceURL:              run.SourceURL,
+		TaskSessionID:          run.TaskSessionID,
+		TaskPrompt:             run.TaskPrompt,
 		RequestedMode:          run.RequestedMode,
 		KnowledgeConnectionIDs: append([]string(nil), run.KnowledgeConnectionIDs...),
 		SkillInstallationID:    run.SkillInstallationID,

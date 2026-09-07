@@ -73,6 +73,11 @@ export default function RunDetailScreen() {
     () => runQuery.data?.artifacts.find((artifact) => artifact.kind === 'final_answer')?.contentMarkdown ?? '',
     [runQuery.data?.artifacts],
   );
+  const codeWiki = useMemo(
+    () => runQuery.data?.artifacts.find((artifact) => artifact.kind === 'code_wiki')?.contentMarkdown ?? '',
+    [runQuery.data?.artifacts],
+  );
+  const finalAnswerContent = finalAnswer || codeWiki;
   const groundedSourceRefs = useMemo(() => parseGroundedSourceRefs(reportGrounding), [reportGrounding]);
   const [selectedGroundedSourceKey, setSelectedGroundedSourceKey] = useState<string | null>(null);
   const [showGroundedSourcesOnly, setShowGroundedSourcesOnly] = useState(false);
@@ -113,30 +118,48 @@ export default function RunDetailScreen() {
       content: string;
     }>
   >(
-    () => [
-      {
-        kind: 'report_outline',
-        title: t('detail.reportOutline'),
-        description: t('detail.reportOutlineDescription'),
-        badge: t('detail.stageOne'),
-        content: reportOutline,
-      },
-      {
-        kind: 'report_draft',
-        title: t('detail.reportDraft'),
-        description: t('detail.reportDraftDescription'),
-        badge: t('detail.stageTwo'),
-        content: reportDraft,
-      },
-      {
-        kind: 'report',
-        title: t('detail.finalReport'),
-        description: t('detail.finalReportDescription'),
-        badge: t('detail.stageThree'),
-        content: report,
-      },
-    ],
-    [report, reportDraft, reportOutline, t],
+    () => {
+      const artifacts: Array<{
+        kind: RunArtifact['kind'];
+        title: string;
+        description: string;
+        badge: string;
+        content: string;
+      }> = [
+        {
+          kind: 'report_outline',
+          title: t('detail.reportOutline'),
+          description: t('detail.reportOutlineDescription'),
+          badge: t('detail.stageOne'),
+          content: reportOutline,
+        },
+        {
+          kind: 'report_draft',
+          title: t('detail.reportDraft'),
+          description: t('detail.reportDraftDescription'),
+          badge: t('detail.stageTwo'),
+          content: reportDraft,
+        },
+        {
+          kind: 'report',
+          title: t('detail.finalReport'),
+          description: t('detail.finalReportDescription'),
+          badge: t('detail.stageThree'),
+          content: report,
+        },
+      ];
+      if (codeWiki || runQuery.data?.run.kind === 'github_repo_analysis') {
+        artifacts.unshift({
+          kind: 'code_wiki',
+          title: 'Code Wiki',
+          description: '任务生成的 Markdown 文档产物。',
+          badge: 'Artifact',
+          content: codeWiki,
+        });
+      }
+      return artifacts;
+    },
+    [codeWiki, report, reportDraft, reportOutline, runQuery.data?.run.kind, t],
   );
   const artifactFocusByStep = useMemo<Record<string, ArtifactFocus>>(
     () => ({
@@ -146,6 +169,10 @@ export default function RunDetailScreen() {
       web_page_extract: 'report_grounding',
       evidence_merge: 'report_draft',
       report_writer: 'report',
+      github_repo_fetch: 'code_wiki',
+      github_repo_scan: 'code_wiki',
+      code_structure_analyze: 'code_wiki',
+      code_wiki_writer: 'code_wiki',
       finalize: 'final_answer',
     }),
     [],
@@ -382,9 +409,9 @@ export default function RunDetailScreen() {
                 {t('detail.finalAnswerDescription')}
               </Text>
             </View>
-            {finalAnswer ? (
+            {finalAnswerContent ? (
               <Markdown rules={markdownRules} style={markdownStyles}>
-                {finalAnswer}
+                {finalAnswerContent}
               </Markdown>
             ) : (
               <Text className="text-sm" style={{color: colors.textSecondary}}>

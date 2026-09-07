@@ -1,7 +1,7 @@
 import {Ionicons} from '@expo/vector-icons';
 import {useQuery} from '@tanstack/react-query';
-import {useRouter} from 'expo-router';
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {useLocalSearchParams, useRouter} from 'expo-router';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Animated,
   Keyboard,
@@ -61,8 +61,20 @@ function formatTemperature(value: number) {
   return value.toFixed(value < 1 ? 2 : 1).replace(/\.?0+$/, '');
 }
 
+function firstRouteParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+  return value ?? '';
+}
+
 export default function RunsScreen() {
   const router = useRouter();
+  const routeParams = useLocalSearchParams<{
+    runId?: string | string[];
+    taskSessionId?: string | string[];
+    taskPrompt?: string | string[];
+  }>();
   const accessToken = useAuthStore((state) => state.accessToken)!;
   const user = useAuthStore((state) => state.user);
   const installedSkills = useSkillsStore((state) => state.installedSkills);
@@ -98,6 +110,7 @@ export default function RunsScreen() {
   const modelAnchorRef = useRef<View | null>(null);
   const streamCleanupRef = useRef<(() => void) | null>(null);
   const sessionHydratedRef = useRef(false);
+  const autoStartedTaskRef = useRef<string | null>(null);
   const profileNavigationPendingRef = useRef(false);
   const fallbackGeneralChatModels = useMemo(
     () => [
@@ -195,6 +208,9 @@ export default function RunsScreen() {
   }, [activeSessionId, sessionsQuery.data?.items]);
 
   useEffect(() => {
+    if (streaming) {
+      return;
+    }
     if (!messagesQuery.data?.items) {
       return;
     }
@@ -207,7 +223,7 @@ export default function RunsScreen() {
       state: 'done' as const,
     }));
     setMessages(nextMessages);
-  }, [messagesQuery.data?.items]);
+  }, [messagesQuery.data?.items, streaming]);
 
   const availableSkills = useMemo<SkillChoice[]>(
     () => [
@@ -559,113 +575,160 @@ export default function RunsScreen() {
     }
   };
 
+  const sendMessageText = useCallback(
+    (rawMessage: string, sessionIdOverride?: string) => {
+      const message = rawMessage.trim();
+      if (!message || streaming) {
+        return;
+      }
+      const targetSessionId = sessionIdOverride?.trim() || activeSessionId;
+      if (targetSessionId && targetSessionId !== activeSessionId) {
+        setActiveSessionId(targetSessionId);
+        setMessages([]);
+      }
+
+      const userMessage: ChatMessage = {
+        id: `${Date.now()}-user`,
+        role: 'user',
+        content: message,
+        state: 'done',
+      };
+      const assistantId = `${Date.now()}-assistant`;
+      const assistantMessage: ChatMessage = {
+        id: assistantId,
+        role: 'assistant',
+        content: '',
+        sources: [],
+        state: 'streaming',
+      };
+
+      setMessages((current) => [...current, userMessage, assistantMessage]);
+      setInput('');
+      setStreaming(true);
+      streamCleanupRef.current?.();
+      let liveSessionId = targetSessionId;
+
+      streamCleanupRef.current = subscribeChatStream(
+        accessToken,
+        {
+          message,
+          skill: selectedSkill.mode,
+          skillId: selectedSkill.id !== DEFAULT_SKILL_ID ? selectedSkill.id : undefined,
+          connectionIds: knowledgeMode === 'selected' ? selectedConnectionIds : [],
+          useKnowledge: knowledgeMode !== 'none',
+          enableSearch,
+          temperature: CHAT_REQUEST_TEMPERATURE,
+          skillPrompt: selectedSkill.prompt,
+          sessionId: targetSessionId ?? undefined,
+        },
+        (event) => {
+          if (event.type === 'session') {
+            if (event.session_id) {
+              liveSessionId = event.session_id;
+              setActiveSessionId(event.session_id);
+              queryClient.invalidateQueries({queryKey: ['chat-sessions']}).catch(() => {});
+            }
+            return;
+          }
+
+          if (event.type === 'retrieval') {
+            return;
+          }
+
+          if (event.type === 'chunk') {
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === assistantId
+                  ? {...item, content: `${item.content}${event.content ?? ''}`}
+                  : item,
+              ),
+            );
+            return;
+          }
+
+          if (event.type === 'done') {
+            setStreaming(false);
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === assistantId
+                  ? {
+                      ...item,
+                      content: event.content ?? item.content,
+                      sources: event.sources ?? item.sources,
+                      usage: event.usage ?? item.usage,
+                      state: 'done',
+                    }
+                  : item,
+              ),
+            );
+            streamCleanupRef.current?.();
+            streamCleanupRef.current = null;
+            queryClient
+              .invalidateQueries({queryKey: ['chat-messages', liveSessionId]})
+              .catch(() => {});
+            return;
+          }
+
+          if (event.type === 'error') {
+            setStreaming(false);
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === assistantId
+                  ? {
+                      ...item,
+                      content: event.error ?? t('chat.error'),
+                      state: 'error',
+                    }
+                  : item,
+              ),
+            );
+            streamCleanupRef.current?.();
+            streamCleanupRef.current = null;
+          }
+        },
+      );
+    },
+    [
+      accessToken,
+      activeSessionId,
+      enableSearch,
+      knowledgeMode,
+      selectedConnectionIds,
+      selectedSkill.id,
+      selectedSkill.mode,
+      selectedSkill.prompt,
+      streaming,
+      t,
+    ],
+  );
+
   const sendMessage = () => {
-    const message = input.trim();
-    if (!message || streaming) {
+    sendMessageText(input);
+  };
+
+  useEffect(() => {
+    const taskSessionId = firstRouteParam(routeParams.taskSessionId).trim();
+    const taskPrompt = firstRouteParam(routeParams.taskPrompt).trim();
+    const runId = firstRouteParam(routeParams.runId).trim();
+    if (!taskSessionId || !taskPrompt) {
       return;
     }
-
-    const userMessage: ChatMessage = {
-      id: `${Date.now()}-user`,
-      role: 'user',
-      content: message,
-      state: 'done',
-    };
-    const assistantId = `${Date.now()}-assistant`;
-    const assistantMessage: ChatMessage = {
-      id: assistantId,
-      role: 'assistant',
-      content: '',
-      sources: [],
-      state: 'streaming',
-    };
-
-    setMessages((current) => [...current, userMessage, assistantMessage]);
-    setInput('');
-    setStreaming(true);
-    streamCleanupRef.current?.();
-    let liveSessionId = activeSessionId;
-
-    streamCleanupRef.current = subscribeChatStream(
-      accessToken,
-      {
-        message,
-        skill: selectedSkill.mode,
-        skillId: selectedSkill.id !== DEFAULT_SKILL_ID ? selectedSkill.id : undefined,
-        connectionIds: knowledgeMode === 'selected' ? selectedConnectionIds : [],
-        useKnowledge: knowledgeMode !== 'none',
-        enableSearch,
-        temperature: CHAT_REQUEST_TEMPERATURE,
-        skillPrompt: selectedSkill.prompt,
-        sessionId: activeSessionId ?? undefined,
-      },
-      (event) => {
-        if (event.type === 'session') {
-          if (event.session_id) {
-            liveSessionId = event.session_id;
-            setActiveSessionId(event.session_id);
-            queryClient.invalidateQueries({queryKey: ['chat-sessions']}).catch(() => {});
-          }
-          return;
-        }
-
-        if (event.type === 'retrieval') {
-          return;
-        }
-
-        if (event.type === 'chunk') {
-          setMessages((current) =>
-            current.map((item) =>
-              item.id === assistantId
-                ? {...item, content: `${item.content}${event.content ?? ''}`}
-                : item,
-            ),
-          );
-          return;
-        }
-
-        if (event.type === 'done') {
-          setStreaming(false);
-          setMessages((current) =>
-            current.map((item) =>
-              item.id === assistantId
-                ? {
-                    ...item,
-                    content: event.content ?? item.content,
-                    sources: event.sources ?? item.sources,
-                    usage: event.usage ?? item.usage,
-                    state: 'done',
-                  }
-                : item,
-            ),
-          );
-          streamCleanupRef.current?.();
-          streamCleanupRef.current = null;
-          queryClient
-            .invalidateQueries({queryKey: ['chat-messages', liveSessionId]})
-            .catch(() => {});
-          return;
-        }
-
-        if (event.type === 'error') {
-          setStreaming(false);
-          setMessages((current) =>
-            current.map((item) =>
-              item.id === assistantId
-                ? {
-                    ...item,
-                    content: event.error ?? t('chat.error'),
-                    state: 'error',
-                  }
-                : item,
-            ),
-          );
-          streamCleanupRef.current?.();
-          streamCleanupRef.current = null;
-        }
-      },
-    );
-  };
+    const taskKey = `${runId}:${taskSessionId}`;
+    if (autoStartedTaskRef.current === taskKey || streaming) {
+      return;
+    }
+    autoStartedTaskRef.current = taskKey;
+    setShowHistoryDrawer(false);
+    sendMessageText(taskPrompt, taskSessionId);
+    queryClient.invalidateQueries({queryKey: ['runs']}).catch(() => {});
+    queryClient.invalidateQueries({queryKey: ['chat-sessions']}).catch(() => {});
+  }, [
+    routeParams.runId,
+    routeParams.taskPrompt,
+    routeParams.taskSessionId,
+    sendMessageText,
+    streaming,
+  ]);
 
   const composerBottomPadding =
     Math.max(insets.bottom, 16) +

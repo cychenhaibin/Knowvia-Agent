@@ -133,6 +133,64 @@ func (s *Service) LoginWithMicrosoft(ctx context.Context, idToken string) (Token
 	return s.issueSession(ctx, user)
 }
 
+func (s *Service) LoginWithWeChat(ctx context.Context, code string) (TokenPair, error) {
+	if s.wechatExchanger == nil {
+		return TokenPair{}, ErrWeChatAuthDisabled
+	}
+	identity, err := s.wechatExchanger.ExchangeCode(ctx, code)
+	if err != nil {
+		return TokenPair{}, err
+	}
+	subject := wechatProviderSubject(identity)
+	if subject == "" {
+		return TokenPair{}, ErrInvalidWeChatCode
+	}
+
+	user, err := s.userStore.GetUserByAuthIdentity(ctx, domain.AuthProviderWeChat, subject)
+	switch {
+	case err == nil:
+	case errors.Is(err, persistence.ErrNotFound):
+		user, err = s.resolveOrCreateWeChatUser(ctx, identity)
+		if err != nil {
+			return TokenPair{}, err
+		}
+	default:
+		return TokenPair{}, err
+	}
+
+	if identity.Nickname != "" || identity.AvatarURL != "" {
+		updated := user
+		if identity.Nickname != "" {
+			updated.DisplayName = identity.Nickname
+		}
+		if identity.AvatarURL != "" {
+			updated.AvatarURL = identity.AvatarURL
+		}
+		if err := s.userStore.UpsertUser(ctx, updated); err != nil {
+			return TokenPair{}, err
+		}
+		user = updated
+	}
+
+	now := time.Now().UTC()
+	authIdentity := domain.AuthIdentity{
+		ID:              authIdentityID(domain.AuthProviderWeChat, subject),
+		UserID:          user.ID,
+		Provider:        domain.AuthProviderWeChat,
+		ProviderSubject: subject,
+		Email:           "",
+		EmailVerified:   false,
+		AvatarURL:       identity.AvatarURL,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if err := s.authIdentityStore.UpsertAuthIdentity(ctx, authIdentity); err != nil {
+		return TokenPair{}, err
+	}
+
+	return s.issueSession(ctx, user)
+}
+
 func (s *Service) resolveOrCreateGoogleUser(ctx context.Context, identity VerifiedGoogleIdentity) (domain.User, error) {
 	return s.resolveOrCreateExternalUser(ctx, externalIdentity{
 		Subject:       identity.Subject,
@@ -153,6 +211,25 @@ func (s *Service) resolveOrCreateMicrosoftUser(ctx context.Context, identity Ver
 		AvatarURL:     identity.AvatarURL,
 		UsernameBase:  "microsoftuser",
 	})
+}
+
+func (s *Service) resolveOrCreateWeChatUser(ctx context.Context, identity VerifiedWeChatIdentity) (domain.User, error) {
+	subject := wechatProviderSubject(identity)
+	return s.resolveOrCreateExternalUser(ctx, externalIdentity{
+		Subject:       "wechat-" + subject,
+		Email:         "",
+		EmailVerified: false,
+		DisplayName:   identity.Nickname,
+		AvatarURL:     identity.AvatarURL,
+		UsernameBase:  "wechatuser",
+	})
+}
+
+func wechatProviderSubject(identity VerifiedWeChatIdentity) string {
+	if subject := strings.TrimSpace(identity.UnionID); subject != "" {
+		return subject
+	}
+	return strings.TrimSpace(identity.OpenID)
 }
 
 type externalIdentity struct {

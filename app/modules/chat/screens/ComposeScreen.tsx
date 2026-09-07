@@ -38,6 +38,17 @@ export default function ComposeScreen() {
     onSuccess: async (run) => {
       reset();
       await queryClient.invalidateQueries({queryKey: ['runs']});
+      if (run.taskSessionId && run.taskPrompt) {
+        router.replace({
+          pathname: '/(tabs)/runs',
+          params: {
+            runId: run.id,
+            taskSessionId: run.taskSessionId,
+            taskPrompt: run.taskPrompt,
+          },
+        });
+        return;
+      }
       router.replace(`/runs/${run.id}`);
     },
   });

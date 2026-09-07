@@ -224,3 +224,9 @@ npm run build
 - App 侧通过 API 与事件流展示任务状态，不直接访问 LLM 服务。
 - Postgres + pgvector 是推荐的索引后端；文件后端更适合本地调试或轻量回归。
 - Skills 由 Go 主存储管理，再同步到 LLM 侧作为运行期镜像。
+
+### GitHub Repo Analysis
+
+当任务目标包含 GitHub 仓库 URL 时，Go 会创建 `github_repo_analysis` Run，并创建一个绑定 Run 的 task session。前端会跳转到聊天页，自动发送 Go 生成的任务 prompt，随后由 Go clone/扫描 public repo，并让模型基于仓库结构和关键文件摘录生成 Code Wiki Markdown。
+
+该任务的产物会保存为 `code_wiki` artifact。task session 不进入普通最近会话列表，只通过历史任务和任务详情访问。当前 MVP 只读取 public repo 文件，不执行仓库代码，也不会默认覆盖大型仓库中的所有文件。

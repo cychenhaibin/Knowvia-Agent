@@ -8,6 +8,7 @@ const (
 	AuthProviderPassword  AuthProvider = "password"
 	AuthProviderGoogle    AuthProvider = "google"
 	AuthProviderMicrosoft AuthProvider = "microsoft"
+	AuthProviderWeChat    AuthProvider = "wechat"
 	AuthProviderApple     AuthProvider = "apple"
 	AuthProviderFacebook  AuthProvider = "facebook"
 )

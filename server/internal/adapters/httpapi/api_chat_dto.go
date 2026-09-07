@@ -40,6 +40,8 @@ type chatSessionDTO struct {
 	ID            string     `json:"id"`
 	UserID        string     `json:"userId"`
 	Title         string     `json:"title"`
+	Kind          string     `json:"kind"`
+	RunID         string     `json:"runId,omitempty"`
 	Pinned        bool       `json:"pinned"`
 	LastMessageAt *time.Time `json:"lastMessageAt,omitempty"`
 	CreatedAt     time.Time  `json:"createdAt"`
@@ -125,6 +127,8 @@ func mapChatSession(session domain.ChatSession) chatSessionDTO {
 		ID:            session.ID,
 		UserID:        session.UserID,
 		Title:         session.Title,
+		Kind:          string(session.Kind),
+		RunID:         session.RunID,
 		Pinned:        session.Pinned,
 		LastMessageAt: session.LastMessageAt,
 		CreatedAt:     session.CreatedAt,

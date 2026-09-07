@@ -15,6 +15,7 @@ func testRunContract(t *testing.T, s contractStore) {
 	runPrimary := domain.Run{
 		ID:                     "run-primary",
 		UserID:                 userID,
+		Kind:                   domain.RunKindResearch,
 		Title:                  "Primary Run",
 		Goal:                   "Investigate alpha",
 		RequestedMode:          domain.RunModeHybrid,
@@ -31,6 +32,7 @@ func testRunContract(t *testing.T, s contractStore) {
 	runSecondary := domain.Run{
 		ID:                     "run-secondary",
 		UserID:                 userID,
+		Kind:                   domain.RunKindResearch,
 		Title:                  "Secondary Run",
 		Goal:                   "Investigate beta",
 		RequestedMode:          domain.RunModeAuto,

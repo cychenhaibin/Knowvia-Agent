@@ -27,6 +27,7 @@ func bootstrapServices(
 	skillService, skillImportService := buildSkillServices(skillServiceStore, skillImportStore, mirrorService)
 	broker := run.NewEventBroker()
 	runService := buildRunService(runStore, clients, broker, knowledgeSearchTool)
+	chatService.SetTaskConversationRunner(runService)
 
 	return &Services{
 		closeFn:             closeFn,
