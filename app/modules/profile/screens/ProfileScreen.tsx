@@ -1,4 +1,5 @@
 import {Ionicons} from '@expo/vector-icons';
+import {useQuery} from '@tanstack/react-query';
 import {useRouter} from 'expo-router';
 import type {ComponentProps, RefObject} from 'react';
 import {useRef, useState} from 'react';
@@ -8,7 +9,8 @@ import {ConfirmModal} from '@/components/ConfirmModal';
 import {Screen} from '@/components/Screen';
 import {useI18n} from '@/i18n/useI18n';
 import {languageLabelMap} from '@/i18n/languages';
-import {API_BASE_URL} from '@/lib/api';
+import {api} from '@/lib/api';
+import {formatFluxABalance} from '@/lib/fluxaBalance';
 import {useAuthStore} from '@/store/auth';
 import {usePreferencesStore} from '@/store/preferences';
 import type {AppColors} from '@/theme/colors';
@@ -247,6 +249,7 @@ function PlanCard({
   planLabel,
   upgradeLabel,
   creditsLabel,
+  creditsValue,
   onUpgrade,
   onOpenUsage,
 }: {
@@ -254,6 +257,7 @@ function PlanCard({
   planLabel: string;
   upgradeLabel: string;
   creditsLabel: string;
+  creditsValue?: string | null;
   onUpgrade: () => void;
   onOpenUsage: () => void;
 }) {
@@ -291,7 +295,9 @@ function PlanCard({
           style={{fontSize: fontSizes.md, color: colors.textPrimary}}>
           {creditsLabel}
         </Text>
-        <Text style={{fontSize: fontSizes.md, color: colors.textMuted}}>2860</Text>
+        {creditsValue ? (
+          <Text style={{fontSize: fontSizes.md, color: colors.textMuted}}>{creditsValue}</Text>
+        ) : null}
         <Ionicons name="chevron-forward" size={18} color={colors.iconSubtle} />
       </Pressable>
     </View>
@@ -326,12 +332,21 @@ function LogoutCard({
 export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const logout = useAuthStore((state) => state.logout);
   const appearance = usePreferencesStore((state) => state.appearance);
-  const language = usePreferencesStore((state) => state.language);
   const setAppearance = usePreferencesStore((state) => state.setAppearance);
   const {colors} = useAppTheme();
-  const {t} = useI18n();
+  const {language, t} = useI18n();
+  const locale = language === 'zh-Hans' ? 'zh-CN' : language;
+  const balanceQuery = useQuery({
+    queryKey: ['fluxa-balance', user?.id, user?.fluxaSite],
+    queryFn: () => api.getFluxABalance(accessToken!),
+    enabled: Boolean(accessToken && user?.id && user?.fluxaSite),
+  });
+  const formattedBalance = balanceQuery.data
+    ? formatFluxABalance(balanceQuery.data, locale)
+    : null;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showAppearanceMenu, setShowAppearanceMenu] = useState(false);
   const [appearanceMenuPosition, setAppearanceMenuPosition] = useState<MenuPosition | null>(
@@ -437,6 +452,13 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               ) : null}
+              {formattedBalance ? (
+                <View className="rounded-full bg-emerald-500/15 px-2 py-1">
+                  <Text style={{fontSize: fontSizes.xs, color: '#059669'}}>
+                    {formattedBalance}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             <Text style={{fontSize: fontSizes.sm, color: colors.textSecondary}}>
               @{user?.username}
@@ -466,6 +488,7 @@ export default function ProfileScreen() {
             planLabel={t('profile.free')}
             upgradeLabel={t('profile.upgrade')}
             creditsLabel={t('profile.credits')}
+            creditsValue={formattedBalance}
             onUpgrade={() => router.push('/upgrade')}
             onOpenUsage={() => router.push('/usage')}
           />

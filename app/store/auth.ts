@@ -53,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await clearGoogleCredentialState();
     await clearMicrosoftAccountState();
     queryClient.removeQueries({queryKey: ['fluxa-model-groups']});
+    queryClient.removeQueries({queryKey: ['fluxa-balance']});
     set({
       user: null,
       accessToken: null,

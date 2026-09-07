@@ -135,6 +135,34 @@ test('FluxA model group cache is scoped to the signed-in account and site', () =
   assert.match(auth, /queryClient\.removeQueries\(\{queryKey:\s*\['fluxa-model-groups'\]\}\)/);
 });
 
+test('profile balance query is scoped to the active FluxA account and site', () => {
+  const screen = readFileSync('modules/profile/screens/ProfileScreen.tsx', 'utf8');
+
+  assert.match(screen, /queryKey:\s*\['fluxa-balance',\s*user\?\.id,\s*user\?\.fluxaSite\]/);
+  assert.match(screen, /enabled:\s*Boolean\(accessToken && user\?\.id && user\?\.fluxaSite\)/);
+  assert.match(screen, /api\.getFluxABalance\(accessToken!\)/);
+  assert.match(screen, /formatFluxABalance\(balanceQuery\.data, locale\)/);
+});
+
+test('profile displays the formatted balance after the FluxA group and uses it for credits', () => {
+  const screen = readFileSync('modules/profile/screens/ProfileScreen.tsx', 'utf8');
+  const groupPillIndex = screen.indexOf('user?.fluxaGroup');
+  const balancePillIndex = screen.indexOf('formattedBalance ?');
+
+  assert.ok(groupPillIndex >= 0);
+  assert.ok(balancePillIndex > groupPillIndex);
+  assert.match(screen, /\{formattedBalance \? \([\s\S]*?\{formattedBalance\}[\s\S]*?\) : null\}/);
+  assert.match(screen, /creditsValue=\{formattedBalance\}/);
+  assert.match(screen, /creditsValue\?: string \| null/);
+  assert.doesNotMatch(screen, />2860</);
+});
+
+test('logout removes all cached FluxA balances', () => {
+  const auth = readFileSync('store/auth.ts', 'utf8');
+
+  assert.match(auth, /queryClient\.removeQueries\(\{queryKey:\s*\['fluxa-balance'\]\}\)/);
+});
+
 test('FluxA model group cards use the unique token identifier as their React key', () => {
   const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
 
