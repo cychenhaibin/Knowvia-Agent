@@ -106,6 +106,21 @@ func TestFluxABalanceSerializesCamelCaseResponseFields(t *testing.T) {
 			t.Fatalf("response missing %q: %s", key, response.Body.String())
 		}
 	}
+	var decoded fluxABalanceResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &decoded); err != nil {
+		t.Fatalf("decode response values: %v", err)
+	}
+	wantValues := fluxABalanceResponse{
+		Quota:                      12.5,
+		QuotaPerUnit:               100,
+		QuotaDisplayType:           "usd",
+		USDExchangeRate:            7.2,
+		CustomCurrencySymbol:       "¥",
+		CustomCurrencyExchangeRate: 1.5,
+	}
+	if decoded != wantValues {
+		t.Fatalf("response values = %+v, want %+v", decoded, wantValues)
+	}
 }
 
 // This fails if a missing paid credential does not retry against the free account.
