@@ -62,6 +62,17 @@ export interface FluxAModelGroup {
   models: Array<{id: string; name: string}>;
 }
 
+export type FluxAQuotaDisplayType = 'USD' | 'CNY' | 'CUSTOM' | 'TOKENS';
+
+export interface FluxABalance {
+  quota: number;
+  quotaPerUnit: number;
+  quotaDisplayType: FluxAQuotaDisplayType;
+  usdExchangeRate: number;
+  customCurrencySymbol: string;
+  customCurrencyExchangeRate: number;
+}
+
 export interface Run {
   id: string;
   userId: string;

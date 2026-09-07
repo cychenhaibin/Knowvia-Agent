@@ -7,7 +7,8 @@ import type {signInWithGoogle} from '../lib/google-auth';
 
 import {getDictionary} from '../i18n/messages';
 import type {api as ApiClient} from '../lib/api';
-import type {FluxASite, SessionPayload} from '../types/api';
+import {formatFluxABalance} from '../lib/fluxaBalance';
+import type {FluxABalance, FluxASite, SessionPayload} from '../types/api';
 import {
   FluxA2FARequiredError,
   loginThroughFluxA,
@@ -141,6 +142,87 @@ test('FluxA model group cards use the unique token identifier as their React key
   assert.doesNotMatch(screen, /FluxAModelGroupSection key=\{group\.name\}/);
 });
 
+test('formats FluxA CNY quota using the configured USD exchange rate', () => {
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'CNY',
+        usdExchangeRate: 7.2,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: 1,
+      },
+      'zh-CN',
+    ),
+    '¥106.56',
+  );
+});
+
+test('formats FluxA USD quota with a currency symbol', () => {
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'USD',
+        usdExchangeRate: 7.2,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: 1,
+      },
+      'en-US',
+    ),
+    '$14.80',
+  );
+});
+
+test('formats FluxA custom quota with its configured symbol and exchange rate', () => {
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'CUSTOM',
+        usdExchangeRate: 1,
+        customCurrencySymbol: 'K',
+        customCurrencyExchangeRate: 2,
+      },
+      'en-US',
+    ),
+    'K29.6',
+  );
+});
+
+test('formats FluxA token quota without currency conversion', () => {
+  assert.equal(
+    formatFluxABalance(
+      {
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'TOKENS',
+        usdExchangeRate: 1,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: 1,
+      },
+      'en-US',
+    ),
+    '7,400,000',
+  );
+});
+
+test('returns null for invalid FluxA balance values', () => {
+  const invalidBalance: FluxABalance = {
+    quota: 7_400_000,
+    quotaPerUnit: 0,
+    quotaDisplayType: 'USD',
+    usdExchangeRate: 7.2,
+    customCurrencySymbol: '',
+    customCurrencyExchangeRate: 1,
+  };
+
+  assert.equal(formatFluxABalance(invalidBalance), null);
+});
+
 test('FluxA service details switch between configuration and account groups without credential fields', () => {
   const screen = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
 
@@ -210,6 +292,45 @@ test('model group API sends only the Knowvia bearer token', async () => {
   assert.equal(fetchCall.headers.get('Authorization'), 'Bearer knowvia-token');
 });
 
+test('FluxA balance API sends only the Knowvia bearer token', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  const originalDev = (globalThis as {__DEV__?: boolean}).__DEV__;
+  let fetchCall: {url: string; headers: Headers} | undefined;
+  process.env.EXPO_PUBLIC_API_BASE_URL = 'https://knowvia.example/v1';
+  (globalThis as {__DEV__?: boolean}).__DEV__ = false;
+  globalThis.fetch = async (input, init) => {
+    fetchCall = {url: String(input), headers: new Headers(init?.headers)};
+    return new Response(
+      JSON.stringify({
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'USD',
+        usdExchangeRate: 7.2,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: 1,
+      }),
+      {status: 200, headers: {'Content-Type': 'application/json'}},
+    );
+  };
+
+  try {
+    await loadApiForTest().getFluxABalance('knowvia-token');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) {
+      delete process.env.EXPO_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.EXPO_PUBLIC_API_BASE_URL = originalBaseUrl;
+    }
+    (globalThis as {__DEV__?: boolean}).__DEV__ = originalDev;
+  }
+
+  assert.ok(fetchCall);
+  assert.equal(fetchCall.url, 'https://knowvia.example/v1/fluxa/balance');
+  assert.equal(fetchCall.headers.get('Authorization'), 'Bearer knowvia-token');
+});
+
 test('model API encodes the selected FluxA group', async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -229,7 +350,7 @@ test('model API encodes the selected FluxA group', async () => {
   assert.equal(requestedUrl, 'https://knowvia.example/v1/fluxa/models?group=gpt%20%E4%B8%93%E7%94%A8');
 });
 
-function loadApiForTest(): Pick<typeof ApiClient, 'listFluxAModelGroups' | 'listFluxAModels'> {
+function loadApiForTest(): Pick<typeof ApiClient, 'getFluxABalance' | 'listFluxAModelGroups' | 'listFluxAModels'> {
   const loader = Module as unknown as {
     _load: (request: string, parent: unknown, isMain: boolean) => unknown;
   };
