@@ -110,23 +110,26 @@ func TestFluxABalanceFetcherRejectsMissingOrNullQuota(t *testing.T) {
 	}
 }
 
-func TestFluxABalanceFetcherRejectsMissingCNYUSDExchangeRate(t *testing.T) {
-	server := newFluxABalanceTestServer(t, `{"quota_per_unit":500000,"quota_display_type":"CNY"}`, `{"quota":1}`)
-	defer server.Close()
-
-	_, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
-	if !errors.Is(err, ErrFluxAUnavailable) {
-		t.Fatalf("balance error = %v, want ErrFluxAUnavailable", err)
+func TestFluxABalanceFetcherRejectsMissingOrNullConditionalExchangeRates(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusData string
+	}{
+		{name: "missing CNY USD rate", statusData: `{"quota_per_unit":500000,"quota_display_type":"CNY"}`},
+		{name: "null CNY USD rate", statusData: `{"quota_per_unit":500000,"quota_display_type":"CNY","usd_exchange_rate":null}`},
+		{name: "missing CUSTOM rate", statusData: `{"quota_per_unit":500000,"quota_display_type":"CUSTOM"}`},
+		{name: "null CUSTOM rate", statusData: `{"quota_per_unit":500000,"quota_display_type":"CUSTOM","custom_currency_exchange_rate":null}`},
 	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newFluxABalanceTestServer(t, tt.statusData, `{"quota":1}`)
+			defer server.Close()
 
-func TestFluxABalanceFetcherRejectsNullCustomExchangeRate(t *testing.T) {
-	server := newFluxABalanceTestServer(t, `{"quota_per_unit":500000,"quota_display_type":"CUSTOM","custom_currency_exchange_rate":null}`, `{"quota":1}`)
-	defer server.Close()
-
-	_, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
-	if !errors.Is(err, ErrFluxAUnavailable) {
-		t.Fatalf("balance error = %v, want ErrFluxAUnavailable", err)
+			_, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
+			if !errors.Is(err, ErrFluxAUnavailable) {
+				t.Fatalf("balance error = %v, want ErrFluxAUnavailable", err)
+			}
+		})
 	}
 }
 
