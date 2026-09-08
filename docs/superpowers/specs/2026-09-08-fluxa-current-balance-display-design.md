@@ -2,6 +2,8 @@
 comet_change: fluxa-current-balance-display
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-09-08-fluxa-current-balance-display
+status: final
 ---
 
 # FluxA 当前余额展示技术设计

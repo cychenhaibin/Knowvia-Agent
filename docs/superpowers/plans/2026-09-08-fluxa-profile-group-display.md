@@ -2,6 +2,7 @@
 change: fluxa-current-balance-display
 design-doc: docs/superpowers/specs/2026-09-08-fluxa-profile-group-design.md
 base-ref: c7c6c68d70b84917306b7912f5c56b09af5a2669
+archived-with: 2026-09-08-fluxa-current-balance-display
 ---
 
 # FluxA 资料页套餐分组展示实施计划

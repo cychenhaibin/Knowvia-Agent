@@ -4,5 +4,6 @@
   "openspec_tasks": "openspec/changes/fluxa-current-balance-display/tasks.md",
   "openspec_delta_spec": "openspec/changes/fluxa-current-balance-display/specs/fluxa-current-balance/spec.md",
   "handoff_context": "openspec/changes/fluxa-current-balance-display/.comet/handoff/design-context.json",
-  "handoff_markdown": "openspec/changes/fluxa-current-balance-display/.comet/handoff/design-context.md"
+  "handoff_markdown": "openspec/changes/fluxa-current-balance-display/.comet/handoff/design-context.md",
+  "archive_directory": "openspec/changes/archive/2026-09-08-fluxa-current-balance-display"
 }
