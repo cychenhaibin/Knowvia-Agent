@@ -54,7 +54,9 @@ export const FLUXA_GROUP_PLAN_CONFIG: Record<string, FluxAPlan> = {
 };
 
 export function resolveFluxAPlan(group: string): FluxAPlan | undefined {
-  return FLUXA_GROUP_PLAN_CONFIG[group];
+  return Object.prototype.hasOwnProperty.call(FLUXA_GROUP_PLAN_CONFIG, group)
+    ? FLUXA_GROUP_PLAN_CONFIG[group]
+    : undefined;
 }
 
 function SettingsGroup({items, colors}: {items: SettingItem[]; colors: AppColors}) {

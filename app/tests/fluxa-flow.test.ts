@@ -192,6 +192,19 @@ test('FluxA balance group configuration maps supported plans and omits unsupport
   assert.equal(messages['profile.subscription'], '订阅版');
 });
 
+test('FluxA balance group configuration omits prototype-chain group names', () => {
+  const {resolveFluxAPlan} = loadProfileScreenModuleForBalanceStateTest({
+    getFluxABalance: async () => {
+      throw new Error('not used by this mapping test');
+    },
+  });
+
+  assert.ok(resolveFluxAPlan);
+  assert.equal(resolveFluxAPlan('constructor'), undefined);
+  assert.equal(resolveFluxAPlan('toString'), undefined);
+  assert.equal(resolveFluxAPlan('__proto__'), undefined);
+});
+
 test('profile trims balance groups before rendering the configured plan', () => {
   const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
   const {ProfileScreen} = loadProfileScreenModuleForBalanceStateTest({
