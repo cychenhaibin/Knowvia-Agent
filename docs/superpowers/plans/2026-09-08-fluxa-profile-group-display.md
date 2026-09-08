@@ -62,21 +62,21 @@ Commit: `feat: expose FluxA account group with balance`
 
 **Interfaces:** `FluxABalance` 增加 `group: string`；代码内单一映射返回本地化套餐标题键和可选等级标签；`PlanCard` 接受空字符串标题和可选标签，空值时不渲染相应元素。
 
-- [ ] **Task 2 / Step 1: 编写失败的 TypeScript 回归测试**
+- [x] **Task 2 / Step 1: 编写失败的 TypeScript 回归测试**
 
 断言 DTO 包含 `group: string`；映射将 `default` 解析为“免费版”且无标签，将 `vip`、`svip`、`ssvip` 解析为“订阅版”及对应标签；资料页将成功查询的 `group.trim()` 经映射传给 `PlanCard`；未知、空和失败状态不渲染套餐信息。
 
-- [ ] **Task 2 / Step 2: 观察 RED**
+- [x] **Task 2 / Step 2: 观察 RED**
 
 Run: `npm test -- fluxa-flow.test.ts`
 
 Expected: FAIL，因为 DTO 没有 group，也没有 group 到套餐标题和标签的映射。
 
-- [ ] **Task 2 / Step 3: 最小实现**
+- [x] **Task 2 / Step 3: 最小实现**
 
 将 `group` 加入 DTO。定义单一可扩展映射：`default` 为本地化“免费版”，`vip`、`svip`、`ssvip` 为本地化“订阅版”并带原 group 标签；为“订阅版”补齐现有本地化资源。资料页仅在 `!balanceQuery.isError && balanceQuery.data` 时查询该映射；`PlanCard` 对空标题或空标签不渲染对应元素。
 
-- [ ] **Task 2 / Step 4: 观察 GREEN 并提交**
+- [x] **Task 2 / Step 4: 观察 GREEN 并提交**
 
 Run: `npm test -- fluxa-flow.test.ts && npx tsc --noEmit`
 
