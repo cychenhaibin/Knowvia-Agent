@@ -10,7 +10,7 @@ import {PrimaryButton} from '@/components/PrimaryButton';
 import {useI18n} from '@/i18n/useI18n';
 import {api} from '@/lib/api';
 import {useAuthStore} from '@/store/auth';
-import {usePreferencesStore} from '@/store/preferences';
+import {EMPTY_ENABLED_FLUXA_MODELS, usePreferencesStore} from '@/store/preferences';
 import {fontSizes} from '@/theme/typography';
 import {useAppTheme} from '@/theme/useAppTheme';
 import type {FluxAModelGroup} from '@/types/api';
@@ -61,7 +61,9 @@ export default function FluxAModelGroupsScreen() {
   const router = useRouter();
   const accessToken = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
-  const enabledFluxAModels = usePreferencesStore((state) => state.enabledFluxAModelsByUser[user?.id ?? ''] ?? []);
+  const enabledFluxAModels = usePreferencesStore(
+    (state) => state.enabledFluxAModelsByUser[user?.id ?? ''] ?? EMPTY_ENABLED_FLUXA_MODELS,
+  );
   const setEnabledFluxAModels = usePreferencesStore((state) => state.setEnabledFluxAModels);
   const {colors} = useAppTheme();
   const {t} = useI18n();

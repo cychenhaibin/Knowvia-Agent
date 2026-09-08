@@ -10,6 +10,7 @@ const LANGUAGE_KEY = 'quickque-agent-language';
 const FLUXA_MODELS_KEY = 'quickque-agent-fluxa-models';
 
 export type EnabledFluxAModel = {id: string; name: string; group: string};
+export const EMPTY_ENABLED_FLUXA_MODELS: EnabledFluxAModel[] = [];
 
 type PreferencesState = {
   appearance: AppearanceMode;

@@ -139,6 +139,18 @@ test('FluxA model group cache is scoped to the signed-in account and site', () =
   assert.match(auth, /queryClient\.removeQueries\(\{queryKey:\s*\['fluxa-model-groups'\]\}\)/);
 });
 
+test('FluxA model selectors reuse a stable empty array when no models are configured', () => {
+  const preferences = readFileSync('store/preferences.ts', 'utf8');
+  const runs = readFileSync('modules/chat/screens/RunsScreen.tsx', 'utf8');
+  const modelGroups = readFileSync('modules/settings/screens/FluxAModelGroupsScreen.tsx', 'utf8');
+
+  assert.match(preferences, /export const EMPTY_ENABLED_FLUXA_MODELS: EnabledFluxAModel\[\] = \[\];/);
+  assert.match(runs, /import \{EMPTY_ENABLED_FLUXA_MODELS, usePreferencesStore\} from '@\/store\/preferences';/);
+  assert.match(runs, /enabledFluxAModelsByUser\[user\?\.id \?\? ''\] \?\? EMPTY_ENABLED_FLUXA_MODELS/);
+  assert.match(modelGroups, /import \{EMPTY_ENABLED_FLUXA_MODELS, usePreferencesStore\} from '@\/store\/preferences';/);
+  assert.match(modelGroups, /enabledFluxAModelsByUser\[user\?\.id \?\? ''\] \?\? EMPTY_ENABLED_FLUXA_MODELS/);
+});
+
 test('profile balance query is scoped to the active FluxA account and site', () => {
   const screen = readFileSync('modules/profile/screens/ProfileScreen.tsx', 'utf8');
 
