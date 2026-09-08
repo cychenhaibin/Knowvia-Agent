@@ -12,7 +12,7 @@ verify_mode: full
 auto_transition: true
 base_ref: 129f821fdea32f76755157cb0861e8e56f1d7aa4
 design_doc: docs/superpowers/specs/2026-09-08-fluxa-current-balance-display-design.md
-plan: docs/superpowers/plans/2026-09-08-fluxa-current-balance-display.md
+plan: docs/superpowers/plans/2026-09-08-fluxa-profile-group-display.md
 verify_result: fail
 verify_failures: 1
 verification_report: docs/superpowers/reports/2026-09-08-fluxa-current-balance-display-verify.md
