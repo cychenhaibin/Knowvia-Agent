@@ -65,6 +65,7 @@ export interface FluxAModelGroup {
 export type FluxAQuotaDisplayType = 'USD' | 'CNY' | 'CUSTOM' | 'TOKENS';
 
 export interface FluxABalance {
+  group: string;
   quota: number;
   quotaPerUnit: number;
   quotaDisplayType: FluxAQuotaDisplayType;

@@ -160,6 +160,64 @@ test('profile balance query is scoped to the active FluxA account and site', () 
   assert.match(screen, /formatFluxABalance\(balanceQuery\.data, locale\)/);
 });
 
+test('FluxA balance group configuration maps supported plans and omits unsupported groups', () => {
+  const apiTypes = readFileSync('types/api.ts', 'utf8');
+  const {resolveFluxAPlan} = loadProfileScreenModuleForBalanceStateTest({
+    getFluxABalance: async () => {
+      throw new Error('not used by this mapping test');
+    },
+  });
+
+  assert.match(apiTypes, /export interface FluxABalance \{[\s\S]*?group:\s*string;/);
+  assert.ok(resolveFluxAPlan);
+  assert.deepEqual(resolveFluxAPlan('default'), {titleKey: 'profile.free'});
+  assert.deepEqual(resolveFluxAPlan('vip'), {
+    titleKey: 'profile.subscription',
+    badgeLabel: 'vip',
+  });
+  assert.deepEqual(resolveFluxAPlan('svip'), {
+    titleKey: 'profile.subscription',
+    badgeLabel: 'svip',
+  });
+  assert.deepEqual(resolveFluxAPlan('ssvip'), {
+    titleKey: 'profile.subscription',
+    badgeLabel: 'ssvip',
+  });
+  assert.equal(resolveFluxAPlan(''), undefined);
+  assert.equal(resolveFluxAPlan('unknown'), undefined);
+
+  const messages: Record<string, string> = getDictionary('zh-Hans');
+  assert.equal(messages['profile.free'], '免费版');
+  assert.equal(messages['profile.subscription'], '订阅版');
+});
+
+test('profile trims balance groups before rendering the configured plan', () => {
+  const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  const {ProfileScreen} = loadProfileScreenModuleForBalanceStateTest({
+    getFluxABalance: async () => {
+      throw new Error('query cache should satisfy this render');
+    },
+  });
+
+  try {
+    queryClient.setQueryData(['fluxa-balance', 'user-1', 'paid'], {
+      group: ' svip ',
+      quota: 7_400_000,
+      quotaPerUnit: 500_000,
+      quotaDisplayType: 'CNY',
+      usdExchangeRate: 7.2,
+      customCurrencySymbol: '',
+      customCurrencyExchangeRate: 1,
+    } as unknown as FluxABalance);
+
+    const profile = renderProfileScreen(ProfileScreen, queryClient);
+    assert.match(profile, /订阅版/);
+    assert.match(profile, /svip/);
+  } finally {
+    queryClient.clear();
+  }
+});
+
 test('profile displays the formatted balance after the FluxA group and uses it for credits', () => {
   const screen = readFileSync('modules/profile/screens/ProfileScreen.tsx', 'utf8');
   const groupPillIndex = screen.indexOf('user?.fluxaGroup');
@@ -175,6 +233,7 @@ test('profile displays the formatted balance after the FluxA group and uses it f
 
 test('profile hides cached FluxA balance when its refresh fails', async () => {
   const balance: FluxABalance = {
+    group: 'default',
     quota: 7_400_000,
     quotaPerUnit: 500_000,
     quotaDisplayType: 'CNY',
@@ -191,7 +250,7 @@ test('profile hides cached FluxA balance when its refresh fails', async () => {
       return nextResponse;
     },
   };
-  const ProfileScreen = loadProfileScreenForBalanceStateTest(apiClient);
+  const {ProfileScreen} = loadProfileScreenModuleForBalanceStateTest(apiClient);
 
   try {
     await queryClient.fetchQuery({
@@ -212,6 +271,7 @@ test('profile hides cached FluxA balance when its refresh fails', async () => {
 
     const refreshFailure = renderProfileScreen(ProfileScreen, queryClient);
     assert.doesNotMatch(refreshFailure, /¥106\.56/);
+    assert.doesNotMatch(refreshFailure, /免费版|订阅版|vip|svip|ssvip/);
   } finally {
     queryClient.clear();
   }
@@ -234,6 +294,7 @@ test('formats FluxA CNY quota using the configured USD exchange rate', () => {
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 500_000,
         quotaDisplayType: 'CNY',
@@ -251,6 +312,7 @@ test('formats FluxA USD quota with a currency symbol', () => {
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 500_000,
         quotaDisplayType: 'USD',
@@ -268,6 +330,7 @@ test('formats FluxA custom quota with its configured symbol and exchange rate', 
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 500_000,
         quotaDisplayType: 'CUSTOM',
@@ -285,6 +348,7 @@ test('formats FluxA token quota without currency conversion', () => {
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 500_000,
         quotaDisplayType: 'TOKENS',
@@ -300,6 +364,7 @@ test('formats FluxA token quota without currency conversion', () => {
 
 test('returns null for invalid FluxA balance values', () => {
   const invalidBalance: FluxABalance = {
+    group: 'default',
     quota: 7_400_000,
     quotaPerUnit: 0,
     quotaDisplayType: 'USD',
@@ -315,6 +380,7 @@ test('formats FluxA balances when unrelated conversion settings are invalid', ()
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 0,
         quotaDisplayType: 'TOKENS',
@@ -329,6 +395,7 @@ test('formats FluxA balances when unrelated conversion settings are invalid', ()
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 500_000,
         quotaDisplayType: 'USD',
@@ -343,6 +410,7 @@ test('formats FluxA balances when unrelated conversion settings are invalid', ()
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 500_000,
         quotaDisplayType: 'CNY',
@@ -357,6 +425,7 @@ test('formats FluxA balances when unrelated conversion settings are invalid', ()
   assert.equal(
     formatFluxABalance(
       {
+        group: 'default',
         quota: 7_400_000,
         quotaPerUnit: 500_000,
         quotaDisplayType: 'CUSTOM',
@@ -419,6 +488,7 @@ test('formats FluxA balances when unrelated conversion settings are absent', () 
 test('returns null when a FluxA balance lacks a display type required input', () => {
   assert.equal(
     formatFluxABalance({
+      group: 'default',
       quota: Number.NaN,
       quotaPerUnit: 0,
       quotaDisplayType: 'TOKENS',
@@ -430,6 +500,7 @@ test('returns null when a FluxA balance lacks a display type required input', ()
   );
   assert.equal(
     formatFluxABalance({
+      group: 'default',
       quota: 7_400_000,
       quotaPerUnit: 0,
       quotaDisplayType: 'USD',
@@ -441,6 +512,7 @@ test('returns null when a FluxA balance lacks a display type required input', ()
   );
   assert.equal(
     formatFluxABalance({
+      group: 'default',
       quota: 7_400_000,
       quotaPerUnit: 500_000,
       quotaDisplayType: 'CNY',
@@ -452,6 +524,7 @@ test('returns null when a FluxA balance lacks a display type required input', ()
   );
   assert.equal(
     formatFluxABalance({
+      group: 'default',
       quota: 7_400_000,
       quotaPerUnit: 500_000,
       quotaDisplayType: 'CUSTOM',
@@ -604,7 +677,7 @@ function renderProfileScreen(ProfileScreen: ComponentType, queryClient?: QueryCl
   return renderToStaticMarkup(screen);
 }
 
-function loadProfileScreenForBalanceStateTest(apiClient: {
+function loadProfileScreenModuleForBalanceStateTest(apiClient: {
   getFluxABalance: () => Promise<FluxABalance>;
 }) {
   const React = require('react') as typeof import('react');
@@ -654,7 +727,13 @@ function loadProfileScreenForBalanceStateTest(apiClient: {
       case '@/components/Screen':
         return {Screen: host('main')};
       case '@/i18n/useI18n':
-        return {useI18n: () => ({language: 'zh-Hans', t: (key: string) => key})};
+        return {
+          useI18n: () => ({
+            language: 'zh-Hans',
+            t: (key: string) =>
+              ({'profile.free': '免费版', 'profile.subscription': '订阅版'})[key] ?? key,
+          }),
+        };
       case '@/i18n/languages':
         return {languageLabelMap: {'zh-Hans': '简体中文'}};
       case '@/lib/api':
@@ -708,7 +787,12 @@ function loadProfileScreenForBalanceStateTest(apiClient: {
 
   try {
     profileModule._compile(compiled.outputText, profilePath);
-    return profileModule.exports.default as ComponentType;
+    return {
+      ProfileScreen: profileModule.exports.default as ComponentType,
+      resolveFluxAPlan: profileModule.exports.resolveFluxAPlan as
+        | ((group: string) => {titleKey: string; badgeLabel?: string} | undefined)
+        | undefined,
+    };
   } finally {
     loader._load = originalLoad;
   }

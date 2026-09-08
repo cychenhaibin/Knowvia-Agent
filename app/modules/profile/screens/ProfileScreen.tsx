@@ -7,6 +7,7 @@ import {Modal, Pressable, Text, View, useWindowDimensions} from 'react-native';
 
 import {ConfirmModal} from '@/components/ConfirmModal';
 import {Screen} from '@/components/Screen';
+import type {MessageKey} from '@/i18n/messages';
 import {useI18n} from '@/i18n/useI18n';
 import {languageLabelMap} from '@/i18n/languages';
 import {api} from '@/lib/api';
@@ -39,6 +40,22 @@ type MenuPosition = {
   left: number;
   width: number;
 };
+
+type FluxAPlan = {
+  titleKey: MessageKey;
+  badgeLabel?: string;
+};
+
+export const FLUXA_GROUP_PLAN_CONFIG: Record<string, FluxAPlan> = {
+  default: {titleKey: 'profile.free'},
+  vip: {titleKey: 'profile.subscription', badgeLabel: 'vip'},
+  svip: {titleKey: 'profile.subscription', badgeLabel: 'svip'},
+  ssvip: {titleKey: 'profile.subscription', badgeLabel: 'ssvip'},
+};
+
+export function resolveFluxAPlan(group: string): FluxAPlan | undefined {
+  return FLUXA_GROUP_PLAN_CONFIG[group];
+}
 
 function SettingsGroup({items, colors}: {items: SettingItem[]; colors: AppColors}) {
   return (
@@ -247,6 +264,7 @@ function AppearanceMenu({
 function PlanCard({
   colors,
   planLabel,
+  planBadge,
   upgradeLabel,
   creditsLabel,
   creditsValue,
@@ -255,6 +273,7 @@ function PlanCard({
 }: {
   colors: AppColors;
   planLabel: string;
+  planBadge?: string;
   upgradeLabel: string;
   creditsLabel: string;
   creditsValue?: string | null;
@@ -266,14 +285,23 @@ function PlanCard({
       className="overflow-hidden rounded-[12px]"
       style={{backgroundColor: colors.surface}}>
       <View className="flex-row items-center justify-between px-5 pb-3 pt-3">
-        <Text
-          style={{
-            fontSize: fontSizes.xl,
-            fontWeight: '700',
-            color: colors.textPrimary,
-          }}>
-          {planLabel}
-        </Text>
+        <View className="flex-row items-center gap-2">
+          {planLabel ? (
+            <Text
+              style={{
+                fontSize: fontSizes.xl,
+                fontWeight: '700',
+                color: colors.textPrimary,
+              }}>
+              {planLabel}
+            </Text>
+          ) : null}
+          {planBadge ? (
+            <View className="rounded-full bg-blue-500/15 px-2 py-1">
+              <Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{planBadge}</Text>
+            </View>
+          ) : null}
+        </View>
         <Pressable
           className="rounded-xl px-4 py-2"
           style={{backgroundColor: colors.brand}}
@@ -347,6 +375,9 @@ export default function ProfileScreen() {
   const formattedBalance = balanceQuery.data && !balanceQuery.isError
     ? formatFluxABalance(balanceQuery.data, locale)
     : null;
+  const fluxAPlan = balanceQuery.data && !balanceQuery.isError
+    ? resolveFluxAPlan(balanceQuery.data.group.trim())
+    : undefined;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showAppearanceMenu, setShowAppearanceMenu] = useState(false);
   const [appearanceMenuPosition, setAppearanceMenuPosition] = useState<MenuPosition | null>(
@@ -485,7 +516,8 @@ export default function ProfileScreen() {
 
           <PlanCard
             colors={colors}
-            planLabel={t('profile.free')}
+            planLabel={fluxAPlan ? t(fluxAPlan.titleKey) : ''}
+            planBadge={fluxAPlan?.badgeLabel}
             upgradeLabel={t('profile.upgrade')}
             creditsLabel={t('profile.credits')}
             creditsValue={formattedBalance}
