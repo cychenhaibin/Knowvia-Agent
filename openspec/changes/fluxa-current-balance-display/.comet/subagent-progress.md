@@ -2,7 +2,7 @@
 
 - Plan task: 使用可扩展 group 映射配置资料页套餐
 - OpenSpec tasks: 4.2 通过代码内的可扩展 group 映射配置套餐标题与等级标签。; 4.3 覆盖服务端 DTO、套餐映射和移动端空值/未知值/失败降级回归测试。
-- Phase: final-fix
+- Phase: done
 - Review mode: standard
 - Implementation commit: ed78d0b
 - Changed files: app/types/api.ts; app/i18n/messages.ts; app/modules/profile/screens/ProfileScreen.tsx; app/tests/fluxa-flow.test.ts
@@ -14,4 +14,5 @@
 - Scoped re-review: approved. Both Important findings addressed; no new Critical or Important findings.
 - Final standard review: one Important finding open — prototype-chain keys (`constructor`, `toString`, `__proto__`) can be treated as configured groups. Final review-fix round: 1/1.
 - Final fix commit: d7fd2d8. RED confirms `constructor` previously resolved via Object.prototype; GREEN `npm test -- fluxa-flow.test.ts && npx tsc --noEmit` passed 42/42. Awaiting scoped final re-review.
+- Scoped final re-review: approved; the prototype-chain finding is addressed and introduced no Critical or Important issue.
 - Resolved context: the SSC router's `none` route returns control to the normal workflow. The existing localization catalog lacked a “订阅版” key, so the task scope now allows the minimal corresponding localization-resource addition.
