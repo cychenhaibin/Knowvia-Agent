@@ -5,7 +5,7 @@
 
 #### Scenario: 已连接的 FluxA 用户读取余额
 - **WHEN** 已认证的 FluxA 用户请求余额端点
-- **THEN** 系统 SHALL 返回 lower-camel 格式的 `quota`、`quotaPerUnit`、`quotaDisplayType`、`usdExchangeRate`、`customCurrencySymbol` 和 `customCurrencyExchangeRate`
+- **THEN** 系统 SHALL 返回 lower-camel 格式的 `quota`、`quotaPerUnit`、`quotaDisplayType`、`usdExchangeRate`、`customCurrencySymbol`、`customCurrencyExchangeRate` 和 `group`
 
 #### Scenario: 上游凭据失效
 - **WHEN** FluxA 上游返回 401 或 403
@@ -36,3 +36,15 @@
 #### Scenario: 余额请求失败
 - **WHEN** 余额请求失败
 - **THEN** 资料页 SHALL 保持可用并隐藏余额标签
+
+#### Scenario: 已配置的套餐分组
+- **WHEN** 余额查询成功且 `group` 为 `default`
+- **THEN** 资料页 SHALL 显示“免费版”且不显示等级标签
+
+#### Scenario: 订阅套餐分组
+- **WHEN** 余额查询成功且 `group` 为 `vip`、`svip` 或 `ssvip`
+- **THEN** 资料页 SHALL 显示“订阅版”，并在其旁显示对应的等级标签
+
+#### Scenario: 套餐分组不可用
+- **WHEN** `group` 缺失、为 null、非字符串、空白、未配置映射，或余额请求失败
+- **THEN** 资料页 SHALL 不显示套餐标题或等级标签
