@@ -83,6 +83,7 @@ func TestFluxABalanceSerializesCamelCaseResponseFields(t *testing.T) {
 		USDExchangeRate:            7.2,
 		CustomCurrencySymbol:       "¥",
 		CustomCurrencyExchangeRate: 1.5,
+		Group:                      "svip",
 	}
 	router, accessToken := newFluxABalanceRouteWithCredentialSites(t, staticFluxABalanceFetcher{balance: balance}, auth.FluxASitePaid)
 	response := serveFluxABalanceRequest(router, accessToken)
@@ -97,6 +98,7 @@ func TestFluxABalanceSerializesCamelCaseResponseFields(t *testing.T) {
 	wantKeys := map[string]bool{
 		"quota": true, "quotaPerUnit": true, "quotaDisplayType": true,
 		"usdExchangeRate": true, "customCurrencySymbol": true, "customCurrencyExchangeRate": true,
+		"group": true,
 	}
 	if len(payload) != len(wantKeys) {
 		t.Fatalf("response keys = %v, want exactly %v", mapKeys(payload), wantKeys)
@@ -117,6 +119,7 @@ func TestFluxABalanceSerializesCamelCaseResponseFields(t *testing.T) {
 		USDExchangeRate:            7.2,
 		CustomCurrencySymbol:       "¥",
 		CustomCurrencyExchangeRate: 1.5,
+		Group:                      "svip",
 	}
 	if decoded != wantValues {
 		t.Fatalf("response values = %+v, want %+v", decoded, wantValues)

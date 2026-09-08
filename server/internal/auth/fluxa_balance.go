@@ -21,6 +21,7 @@ type FluxABalance struct {
 	USDExchangeRate            float64 `json:"usd_exchange_rate"`
 	CustomCurrencySymbol       string  `json:"custom_currency_symbol"`
 	CustomCurrencyExchangeRate float64 `json:"custom_currency_exchange_rate"`
+	Group                      string  `json:"group"`
 }
 
 type fluxABalanceFetcher struct {
@@ -38,7 +39,8 @@ type fluxABalanceStatusData struct {
 }
 
 type fluxABalanceSelfData struct {
-	Quota *float64 `json:"quota"`
+	Quota *float64        `json:"quota"`
+	Group json.RawMessage `json:"group"`
 }
 
 func NewFluxABalanceFetcher(paidOrigin, freeOrigin string) FluxABalanceFetcher {
@@ -106,6 +108,12 @@ func (f *fluxABalanceFetcher) Balance(ctx context.Context, site FluxASite, acces
 	}
 	if status.CustomCurrencyExchangeRate != nil {
 		balance.CustomCurrencyExchangeRate = *status.CustomCurrencyExchangeRate
+	}
+	var group string
+	if len(self.Group) > 0 && json.Unmarshal(self.Group, &group) == nil {
+		if group = strings.TrimSpace(group); group != "" {
+			balance.Group = group
+		}
 	}
 	return balance, nil
 }

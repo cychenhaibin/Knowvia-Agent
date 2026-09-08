@@ -14,6 +14,7 @@ type fluxABalanceResponse struct {
 	USDExchangeRate            float64 `json:"usdExchangeRate"`
 	CustomCurrencySymbol       string  `json:"customCurrencySymbol"`
 	CustomCurrencyExchangeRate float64 `json:"customCurrencyExchangeRate"`
+	Group                      string  `json:"group"`
 }
 
 func (h *Handler) fluxABalance(w http.ResponseWriter, r *http.Request) {
@@ -42,5 +43,6 @@ func (h *Handler) fluxABalance(w http.ResponseWriter, r *http.Request) {
 		USDExchangeRate:            balance.USDExchangeRate,
 		CustomCurrencySymbol:       balance.CustomCurrencySymbol,
 		CustomCurrencyExchangeRate: balance.CustomCurrencyExchangeRate,
+		Group:                      balance.Group,
 	})
 }

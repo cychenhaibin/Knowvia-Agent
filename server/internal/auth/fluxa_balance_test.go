@@ -22,7 +22,7 @@ func TestFluxABalanceFetcherRequestsStatusAndSelf(t *testing.T) {
 			if got := r.Header.Get("Authorization"); got != "Bearer upstream-token" {
 				t.Fatalf("self authorization = %q, want upstream bearer token", got)
 			}
-			_, _ = w.Write([]byte(`{"success":true,"data":{"quota":7400000}}`))
+			_, _ = w.Write([]byte(`{"success":true,"data":{"quota":7400000,"group":"vip"}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -41,9 +41,33 @@ func TestFluxABalanceFetcherRequestsStatusAndSelf(t *testing.T) {
 		USDExchangeRate:            7.2,
 		CustomCurrencySymbol:       "",
 		CustomCurrencyExchangeRate: 1,
+		Group:                      "vip",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("balance = %#v, want %#v", got, want)
+	}
+}
+
+// This fails if optional non-string, missing, or blank upstream groups turn a valid balance into an error or are exposed as a group.
+func TestFluxABalanceFetcherMapsOptionalInvalidGroupToEmpty(t *testing.T) {
+	for _, selfData := range []string{
+		`{"quota":7400000}`,
+		`{"quota":7400000,"group":null}`,
+		`{"quota":7400000,"group":123}`,
+		`{"quota":7400000,"group":"   "}`,
+	} {
+		t.Run(selfData, func(t *testing.T) {
+			server := newFluxABalanceTestServer(t, `{"quota_per_unit":500000,"quota_display_type":"USD"}`, selfData)
+			defer server.Close()
+
+			got, err := newFluxABalanceFetcher(server.URL, server.URL, server.Client()).Balance(context.Background(), FluxASitePaid, "upstream-token")
+			if err != nil {
+				t.Fatalf("balance: %v", err)
+			}
+			if got.Group != "" {
+				t.Fatalf("group = %q, want empty string", got.Group)
+			}
+		})
 	}
 }
 
