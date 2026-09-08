@@ -12,4 +12,5 @@
 - Task review: request changes. Open Important findings: (1) narrow-screen/dynamic-type header layout can overflow; (2) the 12px blue level tag does not meet AA contrast in light/dark themes. Review-fix round: 1/1.
 - Fix commit: 6c8e7ba. RED: `cd app && npm test -- fluxa-flow.test.ts` failed 2 expected assertions for layout constraints and verified AA token usage. GREEN: `cd app && npm test -- fluxa-flow.test.ts && npx tsc --noEmit` passed (41/41 and no type errors). Awaiting scoped re-review.
 - Scoped re-review: approved. Both Important findings addressed; no new Critical or Important findings.
+- Final standard review: dispatched for the complete group-display diff.
 - Resolved context: the SSC router's `none` route returns control to the normal workflow. The existing localization catalog lacked a “订阅版” key, so the task scope now allows the minimal corresponding localization-resource addition.
