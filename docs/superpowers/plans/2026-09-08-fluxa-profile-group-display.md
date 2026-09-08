@@ -32,21 +32,21 @@ base-ref: c7c6c68d70b84917306b7912f5c56b09af5a2669
 
 **Interfaces:** `FluxABalance` 增加 `Group string`；HTTP 成功 DTO 增加 `group`。
 
-- [ ] **Step 1: 编写失败的 Go 回归测试**
+- [x] **Task 1 / Step 1: 编写失败的 Go 回归测试**
 
 在上游 self 成功响应加入 `"group":"vip"`，断言抓取器和 HTTP JSON DTO 都返回 `vip`；添加 `group:null` 与 `group:123` 用例，断言成功且 `Group == ""`。
 
-- [ ] **Step 2: 观察 RED**
+- [x] **Task 1 / Step 2: 观察 RED**
 
 Run: `env -u GOROOT go test ./internal/auth ./internal/adapters/httpapi -run 'TestFluxABalance' -count=1`
 
 Expected: FAIL，因为当前领域和 DTO 没有 group。
 
-- [ ] **Step 3: 最小实现**
+- [x] **Task 1 / Step 3: 最小实现**
 
 将 self 的 group 保存为 `json.RawMessage`；只在 JSON 字符串且 `strings.TrimSpace` 非空时赋给 `FluxABalance.Group`。在 `fluxABalanceResponse` 以 `json:"group"` 序列化该值。不要把非字符串 group 视为余额错误。
 
-- [ ] **Step 4: 观察 GREEN 并提交**
+- [x] **Task 1 / Step 4: 观察 GREEN 并提交**
 
 Run: `env -u GOROOT go test ./internal/auth ./internal/adapters/httpapi -run 'TestFluxABalance' -count=1`
 
@@ -61,21 +61,21 @@ Commit: `feat: expose FluxA account group with balance`
 
 **Interfaces:** `FluxABalance` 增加 `group: string`；代码内单一映射返回套餐标题和可选等级标签；`PlanCard` 接受空字符串标题和可选标签，空值时不渲染相应元素。
 
-- [ ] **Step 1: 编写失败的 TypeScript 回归测试**
+- [ ] **Task 2 / Step 1: 编写失败的 TypeScript 回归测试**
 
 断言 DTO 包含 `group: string`；映射将 `default` 解析为“免费版”且无标签，将 `vip`、`svip`、`ssvip` 解析为“订阅版”及对应标签；资料页将成功查询的 `group.trim()` 经映射传给 `PlanCard`；未知、空和失败状态不渲染套餐信息。
 
-- [ ] **Step 2: 观察 RED**
+- [ ] **Task 2 / Step 2: 观察 RED**
 
 Run: `npm test -- fluxa-flow.test.ts`
 
 Expected: FAIL，因为 DTO 没有 group，也没有 group 到套餐标题和标签的映射。
 
-- [ ] **Step 3: 最小实现**
+- [ ] **Task 2 / Step 3: 最小实现**
 
 将 `group` 加入 DTO。定义单一可扩展映射：`default` 为“免费版”，`vip`、`svip`、`ssvip` 为“订阅版”并带原 group 标签。资料页仅在 `!balanceQuery.isError && balanceQuery.data` 时查询该映射；`PlanCard` 对空标题或空标签不渲染对应元素。
 
-- [ ] **Step 4: 观察 GREEN 并提交**
+- [ ] **Task 2 / Step 4: 观察 GREEN 并提交**
 
 Run: `npm test -- fluxa-flow.test.ts && npx tsc --noEmit`
 
