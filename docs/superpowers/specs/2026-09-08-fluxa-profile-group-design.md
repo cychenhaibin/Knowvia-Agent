@@ -8,8 +8,8 @@
 
 1. 服务端余额抓取器在既有、带上游 Bearer Token 的 `/api/user/self` 请求中读取可选字符串 `group`。
 2. `GET /v1/fluxa/balance` 在既有 lower-camel DTO 中增加 `group`；不会新增移动端到 FluxA 的请求，也不会下发上游 Token 或来源地址。
-3. 移动端 `FluxABalance` DTO 接收 `group`。资料页将已成功查询的 `group.trim()` 交给代码内的分组展示映射：映射同时定义套餐标题和可选等级标签，使未来新增 group 只需新增一项配置。
-4. `default` 映射为“免费版”且无等级标签；`vip`、`svip`、`ssvip` 映射为“订阅版”，标签分别为 `vip`、`svip`、`ssvip`。未命中映射时不渲染套餐标题或等级标签。
+3. 移动端 `FluxABalance` DTO 接收 `group`。资料页将已成功查询的 `group.trim()` 交给代码内的分组展示映射：映射同时定义本地化套餐标题键和可选等级标签，使未来新增 group 只需新增一项配置。
+4. `default` 映射为本地化“免费版”且无等级标签；`vip`、`svip`、`ssvip` 映射为本地化“订阅版”，标签分别为 `vip`、`svip`、`ssvip`。未命中映射时不渲染套餐标题或等级标签。
 
 ## 错误处理
 

@@ -5,3 +5,4 @@
 - Phase: implementing
 - Review mode: standard
 - Risk signals: pending implementer assessment; mobile DTO contract and profile UI mapping are in scope.
+- Resolved context: the SSC router's `none` route returns control to the normal workflow. The existing localization catalog lacked a “订阅版” key, so the task scope now allows the minimal corresponding localization-resource addition.

@@ -58,8 +58,9 @@ Commit: `feat: expose FluxA account group with balance`
 - Modify: `app/types/api.ts`
 - Modify: `app/modules/profile/screens/ProfileScreen.tsx`
 - Modify: `app/tests/fluxa-flow.test.ts`
+- Modify: 实现所需的既有 app 本地化资源文件（仅增加“订阅版”键）
 
-**Interfaces:** `FluxABalance` 增加 `group: string`；代码内单一映射返回套餐标题和可选等级标签；`PlanCard` 接受空字符串标题和可选标签，空值时不渲染相应元素。
+**Interfaces:** `FluxABalance` 增加 `group: string`；代码内单一映射返回本地化套餐标题键和可选等级标签；`PlanCard` 接受空字符串标题和可选标签，空值时不渲染相应元素。
 
 - [ ] **Task 2 / Step 1: 编写失败的 TypeScript 回归测试**
 
@@ -73,7 +74,7 @@ Expected: FAIL，因为 DTO 没有 group，也没有 group 到套餐标题和标
 
 - [ ] **Task 2 / Step 3: 最小实现**
 
-将 `group` 加入 DTO。定义单一可扩展映射：`default` 为“免费版”，`vip`、`svip`、`ssvip` 为“订阅版”并带原 group 标签。资料页仅在 `!balanceQuery.isError && balanceQuery.data` 时查询该映射；`PlanCard` 对空标题或空标签不渲染对应元素。
+将 `group` 加入 DTO。定义单一可扩展映射：`default` 为本地化“免费版”，`vip`、`svip`、`ssvip` 为本地化“订阅版”并带原 group 标签；为“订阅版”补齐现有本地化资源。资料页仅在 `!balanceQuery.isError && balanceQuery.data` 时查询该映射；`PlanCard` 对空标题或空标签不渲染对应元素。
 
 - [ ] **Task 2 / Step 4: 观察 GREEN 并提交**
 
