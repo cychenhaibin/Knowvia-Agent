@@ -284,10 +284,11 @@ function PlanCard({
     <View
       className="overflow-hidden rounded-[12px]"
       style={{backgroundColor: colors.surface}}>
-      <View className="flex-row items-center justify-between px-5 pb-3 pt-3">
-        <View className="flex-row items-center gap-2">
+      <View className="flex-row items-start justify-between px-5 pb-3 pt-3">
+        <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-2 pr-2">
           {planLabel ? (
             <Text
+              className="shrink"
               style={{
                 fontSize: fontSizes.xl,
                 fontWeight: '700',
@@ -297,13 +298,15 @@ function PlanCard({
             </Text>
           ) : null}
           {planBadge ? (
-            <View className="rounded-full bg-blue-500/15 px-2 py-1">
-              <Text style={{fontSize: fontSizes.xs, color: '#2563EB'}}>{planBadge}</Text>
+            <View
+              className="rounded-full px-2 py-1"
+              style={{backgroundColor: colors.surfaceMuted}}>
+              <Text style={{fontSize: fontSizes.xs, color: colors.textPrimary}}>{planBadge}</Text>
             </View>
           ) : null}
         </View>
         <Pressable
-          className="rounded-xl px-4 py-2"
+          className="shrink-0 rounded-xl px-4 py-2"
           style={{backgroundColor: colors.brand}}
           onPress={onUpgrade}>
           <Text style={{fontSize: fontSizes.sm, fontWeight: '600', color: colors.surface}}>

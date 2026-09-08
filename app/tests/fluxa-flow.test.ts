@@ -12,6 +12,7 @@ import type {signInWithGoogle} from '../lib/google-auth';
 import {getDictionary} from '../i18n/messages';
 import type {api as ApiClient} from '../lib/api';
 import {formatFluxABalance} from '../lib/fluxaBalance';
+import {appThemes} from '../theme/colors';
 import type {FluxABalance, FluxASite, SessionPayload} from '../types/api';
 import {
   FluxA2FARequiredError,
@@ -215,6 +216,83 @@ test('profile trims balance groups before rendering the configured plan', () => 
     assert.match(profile, /svip/);
   } finally {
     queryClient.clear();
+  }
+});
+
+test('profile plan header keeps Japanese subscription controls within a shrinkable, wrapping title area', () => {
+  const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  const {ProfileScreen} = loadProfileScreenModuleForBalanceStateTest(
+    {
+      getFluxABalance: async () => {
+        throw new Error('query cache should satisfy this render');
+      },
+    },
+    {
+      language: 'ja',
+      translations: {
+        'profile.subscription': 'サブスクリプション',
+        'profile.upgrade': 'アップグレード',
+      },
+    },
+  );
+
+  try {
+    queryClient.setQueryData(['fluxa-balance', 'user-1', 'paid'], {
+      group: 'ssvip',
+      quota: 7_400_000,
+      quotaPerUnit: 500_000,
+      quotaDisplayType: 'CNY',
+      usdExchangeRate: 7.2,
+      customCurrencySymbol: '',
+      customCurrencyExchangeRate: 1,
+    } as unknown as FluxABalance);
+
+    const profile = renderProfileScreen(ProfileScreen, queryClient);
+    assert.match(profile, /サブスクリプション/);
+    assert.match(profile, /ssvip/);
+    assert.match(profile, /アップグレード/);
+    assert.match(profile, /data-layout="min-w-0 flex-1 flex-row flex-wrap items-center gap-2 pr-2"/);
+    assert.match(profile, /data-layout="shrink-0 rounded-xl px-4 py-2"/);
+    assert.match(profile, /data-layout="shrink"/);
+  } finally {
+    queryClient.clear();
+  }
+});
+
+test('profile plan badge uses AA-compliant theme colors in light and dark themes', () => {
+  for (const colors of Object.values(appThemes)) {
+    assert.ok(
+      contrastRatio(colors.textPrimary, colors.surfaceMuted) >= 4.5,
+      `${colors.textPrimary} on ${colors.surfaceMuted} must meet 4.5:1 contrast`,
+    );
+
+    const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    const {ProfileScreen} = loadProfileScreenModuleForBalanceStateTest(
+      {
+        getFluxABalance: async () => {
+          throw new Error('query cache should satisfy this render');
+        },
+      },
+      {colors},
+    );
+
+    try {
+      queryClient.setQueryData(['fluxa-balance', 'user-1', 'paid'], {
+        group: 'vip',
+        quota: 7_400_000,
+        quotaPerUnit: 500_000,
+        quotaDisplayType: 'CNY',
+        usdExchangeRate: 7.2,
+        customCurrencySymbol: '',
+        customCurrencyExchangeRate: 1,
+      } as unknown as FluxABalance);
+
+      const profile = renderProfileScreen(ProfileScreen, queryClient);
+      assert.match(profile, new RegExp(`data-background-color="${colors.surfaceMuted}"`));
+      assert.match(profile, new RegExp(`<span data-color="${colors.textPrimary}">vip</span>`));
+    } finally {
+      queryClient.clear();
+    }
   }
 });
 
@@ -677,10 +755,31 @@ function renderProfileScreen(ProfileScreen: ComponentType, queryClient?: QueryCl
   return renderToStaticMarkup(screen);
 }
 
-function loadProfileScreenModuleForBalanceStateTest(apiClient: {
-  getFluxABalance: () => Promise<FluxABalance>;
-}) {
+function loadProfileScreenModuleForBalanceStateTest(
+  apiClient: {getFluxABalance: () => Promise<FluxABalance>},
+  options: {
+    language?: string;
+    translations?: Record<string, string>;
+    colors?: Record<string, string>;
+  } = {},
+) {
   const React = require('react') as typeof import('react');
+  const language = options.language ?? 'zh-Hans';
+  const translations = options.translations ?? {};
+  const colors = options.colors ?? {
+    surface: '#fff',
+    surfaceMuted: '#eee',
+    textPrimary: '#111',
+    brand: '#f00',
+    divider: '#ddd',
+    icon: '#111',
+    iconSubtle: '#999',
+    textMuted: '#777',
+    textSecondary: '#666',
+    textTertiary: '#555',
+    overlaySoft: '#000',
+    shadow: '#000',
+  };
   const profilePath = 'modules/profile/screens/ProfileScreen.tsx';
   const source = readFileSync(profilePath, 'utf8');
   const compiled = typescript.transpileModule(source, {
@@ -697,8 +796,24 @@ function loadProfileScreenModuleForBalanceStateTest(apiClient: {
     _nodeModulePaths: (from: string) => string[];
   };
   const originalLoad = loader._load;
-  const host = (tag: string) => ({children}: {children?: ReactNode}) =>
-    React.createElement(tag, null, children);
+  const host = (tag: string) => ({
+    children,
+    className,
+    style,
+  }: {
+    children?: ReactNode;
+    className?: string;
+    style?: {backgroundColor?: string; color?: string};
+  }) =>
+    React.createElement(
+      tag,
+      {
+        ...(className ? {'data-layout': className} : {}),
+        ...(style?.backgroundColor ? {'data-background-color': style.backgroundColor} : {}),
+        ...(style?.color ? {'data-color': style.color} : {}),
+      },
+      children,
+    );
   const profileModule = new Module(profilePath) as Module & {
     _compile: (content: string, filename: string) => void;
   };
@@ -729,9 +844,11 @@ function loadProfileScreenModuleForBalanceStateTest(apiClient: {
       case '@/i18n/useI18n':
         return {
           useI18n: () => ({
-            language: 'zh-Hans',
+            language,
             t: (key: string) =>
-              ({'profile.free': '免费版', 'profile.subscription': '订阅版'})[key] ?? key,
+              translations[key] ??
+              ({'profile.free': '免费版', 'profile.subscription': '订阅版'})[key] ??
+              key,
           }),
         };
       case '@/i18n/languages':
@@ -765,19 +882,7 @@ function loadProfileScreenModuleForBalanceStateTest(apiClient: {
       case '@/theme/useAppTheme':
         return {
           useAppTheme: () => ({
-            colors: {
-              surface: '#fff',
-              textPrimary: '#111',
-              brand: '#f00',
-              divider: '#ddd',
-              icon: '#111',
-              iconSubtle: '#999',
-              textMuted: '#777',
-              textSecondary: '#666',
-              textTertiary: '#555',
-              overlaySoft: '#000',
-              shadow: '#000',
-            },
+            colors,
           }),
         };
       default:
@@ -796,6 +901,21 @@ function loadProfileScreenModuleForBalanceStateTest(apiClient: {
   } finally {
     loader._load = originalLoad;
   }
+}
+
+function contrastRatio(foreground: string, background: string) {
+  const luminance = (color: string) => {
+    const hex = color.slice(1);
+    const rgb = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
+    const channels = rgb.map((channel) =>
+      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+    );
+
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 function loadApiForTest(): Pick<typeof ApiClient, 'getFluxABalance' | 'listFluxAModelGroups' | 'listFluxAModels'> {
